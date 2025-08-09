@@ -11,7 +11,10 @@ Supermodel repo: https://github.com/trzy/Supermodel
 - `data/`
   - `srally2-known.nv` – known-good NVRAM sample used for exploration and verification
 - `src/sr2/`
-  - `nvram_extractor.clj` – the main extraction and helper functions (hex-dumps, scans, decoders)
+  - `nvram_extractor.clj` – façade re-exporting extractors and helpers; keeps a stable public API
+  - `nv/` – modularized namespaces
+    - `nv/explore.clj` – exploratory tools (hex dumps, region scans, landmark-bounded dumps)
+    - `nv/extract.clj` – settled extractors (championship, per-track top‑3, practice top‑8, player summaries)
   - `nvram_known_data.clj` – human-entered known/expected values used as fixtures during RE work
 
 
@@ -87,7 +90,7 @@ Data shapes use simple Clojure maps/vectors and well-named keys to facilitate fu
 
 ## Quick REPL try-it
 
-Using Calva: jack-in, open `src/sr2/nvram_extractor.clj`, and evaluate small expressions step by step.
+Using Calva: jack-in, open `src/sr2/nvram_extractor.clj` (façade), and evaluate small expressions step by step.
 
 Example sessions (these are the exact forms the team used while developing):
 

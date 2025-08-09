@@ -18,7 +18,7 @@
   (let [b (bit-and byte-val 0xFF)]
     (if (and (>= b 32) (<= b 126))
       (char b)
-      ".")))
+      \.)))
 
 (defn hex-to-dec [byte]
   (if (nil? byte) 0 (bit-and byte 0xff)))
