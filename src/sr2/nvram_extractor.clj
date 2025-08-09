@@ -3,53 +3,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as string]))
 
-;; ==========================================
-;; DATA LAYOUT NOTE (duplicated chunks)
-;; ==========================================
-;; Everything we care about resides in the first main chunk:
-;;   [0x0147, 0x38C0)
-;; There is an identical duplicate of this chunk at +0x10000:
-;;   [0x10147, 0x10147 + (0x38C0 - 0x0147))
-;; We should parse/read from the first chunk and ignore later duplicates.
-;; Verified by byte-for-byte comparison.
-
-(def ^:const main-chunk-start 0x0147)
-(def ^:const main-chunk-end   0x38C0)
-(def ^:const duplicate-offset 0x10000)
-
-;; ==========================================
-;; QUICK REFERENCE (verified facts)
-;; ==========================================
-;;
-;; Generally related data seems to be layed out at in regions with fixed sizes.
-;; Generally data for individual tracks seems to be layed out in the order:
-;;   Desert, Mountain, Riviera, Snowy
-;;
-;; Regions & landmarks
-;; - Authoritative data chunk: [0x0147, 0x38C0); identical copy at +0x10000
-;; - Known landmarks inside the chunk:
-;;   * 0x0267   Championship (primary) block (16 32-byte records)
-;;   * 0x0E5D   Per-track top-3: Mountain
-;;   * 0x0F5D   Per-track top-3: Desert
-;;   * 0x105D   Per-track top-3: Riviera
-;;   * 0x115D   Per-track top-3: Snowy
-;;
-;; Practice Top-8 per track (32-byte records)
-;; - Base offsets (8 records, stride 0x20 each):
-;;   * Mountain 0x1467, Desert 0x1567, Riviera 0x1667, Snowy 0x1767
-;; - Initials/name bytes: [1, 0, 5] (X,Y,Z)
-;; - Total time bytes: [20, 21, 16] as 24-bit LE ticks; 60 ticks = 1 centisecond
-;; - Padding/defaults: slots 3..8 typically SAS/POO/MOR/CHA/MAS/PON with 10:00.00..10:50.00
-;;
-;; Championship per-track Top-3 tables
-;; - Each table has 3 records at base, base+0x20, base+0x40 (see landmarks above for bases)
-;; - Time bytes: [30, 31, 26] (lsb, mid, msb)
-;; - Initials bytes: [11, 10, 15]
-;;
-;; Time encoding & helpers
-;; - le24 composes a 24-bit little-endian integer
-;; - Decode: ticks→centiseconds via (quot ticks 60)
-;; - Format: MM:SS.cc via cs->mmsscc
+;; See docs/PROJECT_SUMMARY.md for nvram data layout information
 
 (defn read-nvram-bytes
   "Read NVRAM file as byte array"
@@ -135,8 +89,7 @@
    {:offset 0x0E5D :label "Top-3 Mountain"}
    {:offset 0x0F5D :label "Top-3 Desert"}
    {:offset 0x105D :label "Top-3 Riviera"}
-   {:offset 0x115D :label "Top-3 Snowy"}
-   {:offset 0x10267 :label "Championship (duplicate?)"}])
+  {:offset 0x115D :label "Top-3 Snowy"}])
 
 
 (defn tags-for-region
@@ -226,19 +179,6 @@
     (System/arraycopy data start out 0 len)
     out))
 
-(defn championship-duplicates
-  "Return offsets where a 16-record (0x200 bytes) championship block equals the primary.
-   opts: {:primary-offset 0x267 :step 0x20}"
-  ([^bytes data] (championship-duplicates data {:primary-offset 0x267 :step 0x20}))
-  ([^bytes data {:keys [primary-offset step] :or {primary-offset 0x267 step 0x20}}]
-   (let [block-len (* 16 0x20)
-         n (alength data)
-         primary (bytes-slice data primary-offset block-len)]
-     (vec (for [off (range 0 (inc (- n block-len)) step)
-                :when (and (not= off primary-offset)
-                           (java.util.Arrays/equals primary (bytes-slice data off block-len)))]
-            off)))))
-
 (defn le24
   "Compose a 24-bit little-endian integer from bytes [lsb mid msb]."
   [lsb-20 mid-21 msb-16]
@@ -257,8 +197,7 @@
     (format "%02d:%02d.%02d" m s cc)))
 
 (defn extract-championship-leaderboard
-  "- Championship data starts at offset 0x267 (duplicate at 0x10267)
-   - Each entry is 32 bytes (0x20)
+  "- Each entry is 32 bytes (0x20)
    - time encoded in positions 16, 20, 21"
   [data start-offset]
   ; Extract all 16 championship entries

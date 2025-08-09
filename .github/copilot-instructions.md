@@ -9,15 +9,15 @@ Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, a
 
 - Be data-oriented and functional. Prefer small, pure functions that return data (maps/vectors/strings/ints).
 - Keep IO thin. Load bytes once, pass `byte[]` around. Avoid printing from core extractors; provide separate pretty-printers.
-- Respect invariants from the summary doc (chunk ranges, duplicate chunk at `+0x10000`, record size `0x20`, time byte offsets).
+- Respect invariants from the summary doc (chunk ranges, record size `0x20`, time byte offsets).
 - Minimize change surface. Preserve namespaces/APIs; add focused helpers; document new offsets inline and in the summary.
 - Verify at the REPL before committing. Use the sample NVRAM at `data/srally2-known.nv` for smoke tests.
 
 
 ## Quick start (REPL loop)
 
-- Use the Backseat Driver repl connection. Evaluate small expressions as you work.
-- Always add the evaluated expression to the chat as a Clojure code block
+- Use the Backseat Driver/Calva REPL connection. Evaluate small expressions as you work.
+- Always add the evaluated expression to the chat as a Clojure code block.
 - Load helpers and sample data:
   ```clojure
   (in-ns 'sr2.nvram-extractor)
@@ -25,10 +25,17 @@ Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, a
   (alength data)
   ```
 - Validate a feature you touch (choose 1-2 fast checks):
+ - Validate a feature you touch (choose 1-2 fast checks):
   ```clojure
   (-> (extract-all-track-top3 data) (update-vals #(mapv :time %)))
   (take 3 (extract-championship-leaderboard data 0x267))
   (print-player-best-and-potential data "PEZ")
+  ```
+
+- Run the test suite from the REPL (ensure `:test` alias is active so `test/` is on classpath):
+  ```clojure
+  (require 'sr2.dev)
+  (sr2.dev/run-tests)
   ```
 
 
@@ -48,8 +55,7 @@ Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, a
 
 ## Data layout guardrails
 
-- Main authoritative chunk: `[0x0147, 0x38C0)`.
-- Identical duplicate exists at `+0x10000`. Never bother with any data beyond `0x10000`.
+- Main authoritative chunk: `[0x0000, 0x38C0)`. Never read beyond this.
 - Record size for records with player + time is `0x20`. Stride is `0x20` for tables.
 - Known tables (see `docs/PROJECT_SUMMARY.md` for the full list and landmarks):
   - Championship top-16 block at `0x0267`.
@@ -85,9 +91,13 @@ Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, a
 - Include a short REPL snippet demonstrating the new capability.
 
 8) Tests
-- Run tests to guard against regressions
+- Run tests to guard against regressions. From REPL:
+  ```clojure
+  (require 'sr2.dev)
+  (sr2.dev/run-tests)
+  ```
 
-9) Code file updats
+9) Code file updates
 - Discuss with the user if the code files should be updated.
 
 At any time when you want to think together with the user, use the human intelligence tool.
@@ -115,10 +125,7 @@ At any time when you want to think together with the user, use the human intelli
   ```clojure
   (ne/extract-championship-leaderboard data 0x267)
   ```
-- Duplicate championship blocks:
-  ```clojure
-  (ne/championship-duplicates data)
-  ```
+
 - Hex dump a region:
   ```clojure
   (ne/hex-dump data 0x0267 0x04A0)
@@ -135,7 +142,7 @@ At any time when you want to think together with the user, use the human intelli
 
 ## When exploring new tables (per-car top-8, sector splits)
 
-- Constrain search to `[0x0147, 0x38C0)`; avoid the duplicate.
+- Constrain search to `[0x00000, 0x38C0)`
 - Look for repeated 0x20-sized records with plausible initials/time fields.
 - Use landmark-forward chopping to bound regions, then test `le24`-decoded ranges for plausibility.
 - Validate by summing splits to lap/run times and by correlating with known choices (car, track, mode).

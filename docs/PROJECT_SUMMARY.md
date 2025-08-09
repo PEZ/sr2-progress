@@ -34,8 +34,7 @@ Planned/known data sets (some implemented, some pending):
 
 ## What we know about the NVRAM layout (from this repo’s exploration)
 
-- Authoritative main chunk with all relevant data (for our purposes): `[0x0147, 0x38C0)`
-- There is an identical duplicate of that chunk at offset `+0x10000` (i.e. `[0x10147, 0x10147 + size)`). Read from the first chunk and ignore later duplicates.
+- Authoritative main chunk with all relevant data (for our purposes): `0x0000 -> 0x38C0)`.
 - Landmark offsets (inside the main chunk):
   - `0x0267` – Championship primary block (16 × 32-byte records)
   - Top-3 per-track tables (3 records each, stride `0x20`):
@@ -66,7 +65,6 @@ The code aims for small, pure helpers with data-in/data-out. A quick cheat-sheet
 - Championship (overall top-16)
   - `extract-championship-leaderboard data start-offset -> [{:entry :player-name :championship-time ...}]`
   - `championship-leaderboard data {:offset 0x267}` – pretty printer
-  - Duplicate detector: `championship-duplicates` (finds other 0x200-byte blocks equal to the primary)
 - Per-track top-3 (championship tables)
   - `track-tables` – discovered bases/offset specs for Mountain/Desert/Riviera/Snowy
   - `extract-track-top3 data spec -> [{:time :initials} ×3]`
@@ -131,7 +129,6 @@ Example sessions (these are the exact forms the team used while developing):
 - Keep functions pure where practical. Favor small, composable transformations.
 - Prefer evaluating sub-expressions over printing (e.g. decode then format, don’t println during parsing).
 - Offsets and sizes use hex literals in code; mirror them in docs where it improves signal.
-- When scanning the file globally, ignore the duplicate main chunk at `+0x10000` to avoid false positives.
 
 
 ## Current capabilities (status)
@@ -156,8 +153,8 @@ Example sessions (these are the exact forms the team used while developing):
 - Hypothesis: near practice Top-8 bases; similar encoding to lap times but with more entries per lap.
 - Approach: use non-blank region summaries around `[0x1467..0x1767]`, look for repeated triplets/quintuplets (Riviera 5), verify by deltas summing to lap times.
 
-4) Robust duplicate handling and chunk boundaries
-- Constrain global searches to `[0x0147, 0x38C0)` and ignore `+0x10000` duplicate; parameterize helpers with region bounds.
+4) Robust chunk boundaries
+- Constrain global searches to `[0x0147, 0x38C0)`; parameterize helpers with region bounds.
 
 5) Structured outputs
 - Add EDN/JSON exporters for all extractors (one file per table), plus a tiny CLI/`-m` entrypoint for batch extraction.
@@ -181,7 +178,7 @@ Example sessions (these are the exact forms the team used while developing):
 - Stride: the byte distance between successive records (here, `0x20`)
 - Record: a fixed 32-byte structure containing initials, timings, and padding
 - Ticks: 24-bit little-endian timing unit; here `60 ticks = 1 centisecond`
-- Main chunk: `[0x0147, 0x38C0)` containing all the tables we care about (duplicated at `+0x10000`)
+- Main chunk: `[0x0147, 0x38C0)` containing all the tables we care about
 
 
 ## Contribution pointers
