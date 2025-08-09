@@ -1,6 +1,7 @@
 (ns sr2.nvram-extractor-test
   (:require [clojure.test :refer [deftest is testing]]
-            [sr2.nvram-extractor :as ne]))
+            [sr2.nvram-extractor :as ne]
+            [sr2.nvram-known-data :as kd]))
 
 ;; Load once for all tests (tiny file ~128KB)
 (def data (ne/read-nvram-bytes "data/srally2-known.nv"))
@@ -47,5 +48,17 @@
       (is (= 16 (count xs)))
       (doseq [{:keys [player-name championship-time]} xs]
         (is (= 3 (count player-name)))
-        (is (re-matches mmsscc-re championship-time))))))
+        (is (re-matches mmsscc-re championship-time))))
+    ;; light golden checks against known sample (avoid overfitting)
+  (let [{:keys [player-name championship-time]} (first (ne/extract-championship-leaderboard data 0x267))
+      expected-player (:player kd/championship)
+      expected-time (first (:overall-best-times kd/championship))]
+    (is (= expected-player player-name))
+    (is (= expected-time championship-time)))))
+
+(deftest practice-desert-golden-spot
+  (testing "practice desert contains known top time"
+    (let [entries (:desert (ne/extract-practice-top8 data))
+          expected (first (get-in kd/test-practice-data [:times :PEZ :desert]))]
+      (is (some #(= expected (:time %)) entries)))))
 

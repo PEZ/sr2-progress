@@ -126,6 +126,17 @@ Example sessions (these are the exact forms the team used while developing):
 - External context: Supermodel repo (build/run details): https://github.com/trzy/Supermodel
 - Human-entered expectations: `src/sr2/nvram_known_data.clj`
 
+## Running tests (REPL-only)
+
+Always run tests from the Calva REPL to keep classpath and state consistent during refactors. Do not use the shell to run tests.
+
+REPL snippet:
+
+```clojure
+(require 'sr2.dev)
+(sr2.dev/run-tests)
+```
+
 
 ## Engineering notes and conventions
 
