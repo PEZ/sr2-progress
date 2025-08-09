@@ -6,189 +6,113 @@
 
 ;; See docs/PROJECT_SUMMARY.md for nvram data layout information
 
-(defn read-nvram-bytes
-  "Read NVRAM file as byte array"
-  [file-path]
-  (u/read-nvram-bytes file-path))
+(def read-nvram-bytes u/read-nvram-bytes)
 
-(defn safe-char
-  "Convert byte to ASCII char, returning . for non-printable"
-  [byte-val]
-  (u/safe-char byte-val))
+(def safe-char u/safe-char)
 
-(defn hex-to-dec [byte]
-  (u/hex-to-dec byte))
+(def hex-to-dec u/hex-to-dec)
 
 ;; Simple hex dump utility
-(defn hex-dump
-  "Print a hex dump of data bytes in [start,end). 16 bytes per line with ASCII gutter."
-  [^bytes data start end]
-  (xpl/hex-dump data start end))
+(def hex-dump xpl/hex-dump)
 
 ;; ==========================================
 ;; REGION SCANNING (blank/non-blank + tagging)
 ;; ==========================================
 
-(defn find-blank-ranges
-  "Return a vector of {:start :end} half-open ranges of contiguous bytes equal to blank-byte.
-   min-len filters out short runs. opts: {:blank-byte 0x00 :min-len 1}"
-  ([^bytes data] (xpl/find-blank-ranges data))
-  ([^bytes data opts] (xpl/find-blank-ranges data opts)))
+(def find-blank-ranges xpl/find-blank-ranges)
 
-(defn complement-ranges
-  "Given total length and sorted blank ranges [{:start :end} ...], return non-blank ranges."
-  [total-len blank-ranges]
-  (xpl/complement-ranges total-len blank-ranges))
+(def complement-ranges xpl/complement-ranges)
 
 (def landmarks xpl/landmarks)
 
 
-(defn tags-for-region [r] (xpl/tags-for-region r))
+(def tags-for-region xpl/tags-for-region)
 
-(defn region-summary
-  "Summarize non-blank regions with optional tags. opts: {:blank-byte 0x00 :min-blank-len 1}"
-  ([^bytes data] (xpl/region-summary data))
-  ([^bytes data opts] (xpl/region-summary data opts)))
+(def region-summary xpl/region-summary)
 
-(defn hex-dump-nonblank
-  "Hex dump all non-blank regions with headers and tags. opts: {:blank-byte 0x00 :min-blank-len 1}"
-  ([^bytes data] (xpl/hex-dump-nonblank data))
-  ([^bytes data opts] (xpl/hex-dump-nonblank data opts)))
+(def hex-dump-nonblank xpl/hex-dump-nonblank)
 
 ;; ==========================================
 ;; LANDMARK-FORWARD CHOPPING (stop at blank run)
 ;; ==========================================
 
-(defn find-next-blank-run
-  "Return the start index of the first run of blank-byte of length >= min-len at or after `from`."
-  ([^bytes data from] (xpl/find-next-blank-run data from))
-  ([^bytes data from opts] (xpl/find-next-blank-run data from opts)))
+(def find-next-blank-run xpl/find-next-blank-run)
 
-(defn landmark-regions
-  "For each known landmark, return {:label :start :end :size}."
-  ([^bytes data] (xpl/landmark-regions data))
-  ([^bytes data opts] (xpl/landmark-regions data opts)))
+(def landmark-regions xpl/landmark-regions)
 
-(defn hex-dump-landmark-regions
-  "Hex dump regions starting at each landmark, stopping at the next blank run of length >= min-blank-len."
-  ([^bytes data] (xpl/hex-dump-landmark-regions data))
-  ([^bytes data opts] (xpl/hex-dump-landmark-regions data opts)))
+(def hex-dump-landmark-regions xpl/hex-dump-landmark-regions)
 
 (comment
   (hex-dump-nonblank (read-nvram-bytes "srally2-data.nv") {:blank-byte 0x00 :min-blank-len 10})
   :rcf)
 
-(defn bytes-slice
-  "Copy a slice of a byte array [start, start+len)."
-  [^bytes data start len]
-  (u/bytes-slice data start len))
+(def bytes-slice u/bytes-slice)
 
-(defn le24
-  "Compose a 24-bit little-endian integer from bytes [lsb mid msb]."
-  [lsb-20 mid-21 msb-16]
-  (u/le24 lsb-20 mid-21 msb-16))
+(def le24 u/le24)
 
 ;; 60 ticks = 1 centisecond
-(defn decode-time
-  "Decode MM:SS.cc from [lsb-20 mid-21 msb-16], where 60 ticks = 1 centisecond."
-  [lsb mid msb]
-  (u/decode-time lsb mid msb))
+(def decode-time u/decode-time)
 
-(defn extract-championship-leaderboard
-  "- Each entry is 32 bytes (0x20)
-   - time encoded in positions 16, 20, 21"
-  [data start-offset]
-  (ext/extract-championship-leaderboard data start-offset))
+(def extract-championship-leaderboard ext/extract-championship-leaderboard)
 
 
-(defn championship-leaderboard
-  "Print championship leaderboard.
-   opts: {:offset 0x267}. If called as [data], defaults to {:offset 0x267}."
-  ([data] (ext/championship-leaderboard data))
-  ([data opts] (ext/championship-leaderboard data opts)))
+(def championship-leaderboard ext/championship-leaderboard)
 
 ;; ==========================================
 ;; TRACK TOP-3 EXTRACTION (delegated)
 ;; ==========================================
 
-(defn decode-at-offsets
-  [^bytes data base stride offs]
-  (ext/decode-at-offsets data base stride offs))
+(def decode-at-offsets ext/decode-at-offsets)
 
-(defn extract-track-top3 [^bytes data spec]
-  (ext/extract-track-top3 data spec))
+(def extract-track-top3 ext/extract-track-top3)
 
 (def track-tables ext/track-tables)
 
-(defn extract-all-track-top3 [^bytes data]
-  (ext/extract-all-track-top3 data))
+(def extract-all-track-top3 ext/extract-all-track-top3)
 
-(defn print-all-track-top3
-  ([^bytes data] (ext/print-all-track-top3 data))
-  ([^bytes data opts] (ext/print-all-track-top3 data opts)))
+(def print-all-track-top3 ext/print-all-track-top3)
 
-(defn compare-top3 [^bytes data expected]
-  (ext/compare-top3 data expected))
+(def compare-top3 ext/compare-top3)
 
 ;; ==========================================
 ;; POTENTIAL TIME (best-per-track per player)
 ;; ==========================================
 
-(defn parse-mmsscc->cs [s] (u/parse-mmsscc->cs s))
+(def parse-mmsscc->cs u/parse-mmsscc->cs)
 
-(defn cs->mmsscc [cs] (u/cs->mmsscc cs))
+(def cs->mmsscc u/cs->mmsscc)
 
-(defn player-best-per-track [^bytes data player]
-  (ext/player-best-per-track data player))
+(def player-best-per-track ext/player-best-per-track)
 
-(defn potential-time [best-map]
-  (ext/potential-time best-map))
+(def potential-time ext/potential-time)
 
-(defn player-best-championship-time [^bytes data player]
-  (ext/player-best-championship-time data player))
+(def player-best-championship-time ext/player-best-championship-time)
 
-(defn signed-diff-mmsscc [potential-cs best-cs]
-  (ext/signed-diff-mmsscc potential-cs best-cs))
+(def signed-diff-mmsscc ext/signed-diff-mmsscc)
 
-(defn print-player-best-and-potential [^bytes data player]
-  (ext/print-player-best-and-potential data player))
+(def print-player-best-and-potential ext/print-player-best-and-potential)
 
 ;; ==========================================
 ;; PRACTICE/RECORD HELPERS (championship regions)
 ;; ==========================================
 
-(defn rec-name
-  "Player initials/name as stored in a 32-byte record at offset `off`.
-   Uses the same positions as championship entries (1, 0, 5)."
-  [^bytes data off]
-  (u/rec-name data off))
+(def rec-name u/rec-name)
 
-(defn rec-cs
-  "Centiseconds decoded from [20,21,16] as little-endian 24-bit ticks (60 ticks = 1 cs)."
-  [^bytes data off]
-  (u/rec-cs data off))
+(def rec-cs u/rec-cs)
 
-(defn rec-time
-  "MM:SS.cc string for the record at offset `off`."
-  [^bytes data off]
-  (u/rec-time data off))
+(def rec-time u/rec-time)
 
 ;; ------------------------------------------
 ;; PRACTICE TOP-8 PER TRACK (delegated)
 ;; ------------------------------------------
 
-(defn extract-practice-top8-at [^bytes data base]
-  (ext/extract-practice-top8-at data base))
+(def extract-practice-top8-at ext/extract-practice-top8-at)
 
 (def track-practice-bases ext/track-practice-bases)
 (def track-order          ext/track-order)
-(defn extract-practice-top8
-  ([^bytes data] (ext/extract-practice-top8 data))
-  ([^bytes data bases] (ext/extract-practice-top8 data bases)))
+(def extract-practice-top8 ext/extract-practice-top8)
 
-(defn print-practice-top8
-  ([^bytes data] (ext/print-practice-top8 data))
-  ([^bytes data opts] (ext/print-practice-top8 data opts)))
+(def print-practice-top8 ext/print-practice-top8)
 
 (comment
   ;; REPL helpers and examples

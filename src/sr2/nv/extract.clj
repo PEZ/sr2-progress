@@ -3,18 +3,7 @@
   (:require [clojure.string :as string]
             [sr2.nv.util :as u]))
 
-;; Re-export util helpers as local fns for clarity inside this ns
-(def read-nvram-bytes u/read-nvram-bytes)
-(def safe-char        u/safe-char)
-(def hex-to-dec       u/hex-to-dec)
-(def bytes-slice      u/bytes-slice)
-(def le24             u/le24)
-(def decode-time      u/decode-time)
-(def parse-mmsscc->cs u/parse-mmsscc->cs)
-(def cs->mmsscc       u/cs->mmsscc)
-(def rec-name         u/rec-name)
-(def rec-cs           u/rec-cs)
-(def rec-time         u/rec-time)
+;; Use helpers directly from the aliased util ns (u/..)
 
 ;; ==========================================
 ;; CHAMPIONSHIP LEADERBOARD (top-16)
@@ -26,14 +15,14 @@
   [data start-offset]
   (filterv some?
            (for [i (range 16)]
-             (let [offset (+ start-offset (* i 0x20))
-                   player-name (str (safe-char (aget data (+ offset 1)))
-                                    (safe-char (aget data (+ offset 0)))
-                                    (safe-char (aget data (+ offset 5))))
-                   time-component-16 (hex-to-dec (aget data (+ offset 16)))
-                   time-component-20 (hex-to-dec (aget data (+ offset 20)))
-                   time-component-21 (hex-to-dec (aget data (+ offset 21)))
-                   extracted-time (decode-time time-component-20 time-component-21 time-component-16)]
+     (let [offset (+ start-offset (* i 0x20))
+       player-name (str (u/safe-char (aget data (+ offset 1)))
+            (u/safe-char (aget data (+ offset 0)))
+            (u/safe-char (aget data (+ offset 5))))
+       time-component-16 (u/hex-to-dec (aget data (+ offset 16)))
+       time-component-20 (u/hex-to-dec (aget data (+ offset 20)))
+       time-component-21 (u/hex-to-dec (aget data (+ offset 21)))
+       extracted-time (u/decode-time time-component-20 time-component-21 time-component-16)]
                {:entry i
                 :time-component-16 time-component-16
                 :time-component-20 time-component-20
@@ -91,7 +80,7 @@
                    lsb (bit-and (aget data (+ s o0)) 0xFF)
                    mid (bit-and (aget data (+ s o1)) 0xFF)
                    msb (bit-and (aget data (+ s o2)) 0xFF)]]
-         (decode-time lsb mid msb))))
+         (u/decode-time lsb mid msb))))
 
 (defn extract-track-top3
   "Return the vector of three entries {:time :initials} for one track using the table spec."
@@ -103,7 +92,7 @@
                  lsb (bit-and (aget data (+ s o0)) 0xFF)
                  mid (bit-and (aget data (+ s o1)) 0xFF)
                  msb (bit-and (aget data (+ s o2)) 0xFF)
-                 t   (decode-time lsb mid msb)
+                   t   (u/decode-time lsb mid msb)
                  ini (rec-initials data base stride k)]]
        {:time t :initials ini}))))
 
@@ -126,7 +115,7 @@
                    (str time " (" initials ")")
                    time))]
        (printf "%9s: %s\n" (name trk)
-               (clojure.string/join ", " (map fmt entries)))))))
+         (string/join ", " (map fmt entries)))))))
 
 (defn compare-top3
   "Compare extracted top-3 with an expected map {track [t1 t2 t3]}.
@@ -151,16 +140,16 @@
           (keep (fn [[trk entries]]
                   (let [mine (filter #(= (:initials %) player) entries)]
                     (when (seq mine)
-                      (let [best (apply min-key #(parse-mmsscc->cs (:time %)) mine)]
+                      (let [best (apply min-key #(u/parse-mmsscc->cs (:time %)) mine)]
                         [trk best]))))
                 by-track))))
 
 (defn potential-time
   "Sum the track times in {track {:time ...}} and return {:centiseconds :time}."
   [best-map]
-  (let [total-cs (reduce + 0 (map (comp parse-mmsscc->cs :time) (vals best-map)))]
+  (let [total-cs (reduce + 0 (map (comp u/parse-mmsscc->cs :time) (vals best-map)))]
     {:centiseconds total-cs
-     :time (cs->mmsscc total-cs)}))
+     :time (u/cs->mmsscc total-cs)}))
 
 (defn player-best-championship-time
   "Return the best (lowest) championship time string for player initials, or nil if none."
@@ -170,14 +159,14 @@
                       :when (= player-name player)]
                   championship-time)]
     (when (seq times)
-      (->> times (apply min-key parse-mmsscc->cs)))))
+      (->> times (apply min-key u/parse-mmsscc->cs)))))
 
 (defn signed-diff-mmsscc
   "Format signed difference (potential - best) in MM:SS.cc with sign."
   [potential-cs best-cs]
   (let [diff (- potential-cs best-cs)
         sign (if (neg? diff) "-" (if (pos? diff) "+" ""))
-        mmss (cs->mmsscc (Math/abs diff))]
+        mmss (u/cs->mmsscc (Math/abs diff))]
     (str sign mmss)))
 
 (defn print-player-best-and-potential
@@ -201,7 +190,7 @@
         (printf "Championship best: %s\n" (or best-champ "-"))
         (when best-champ
           (let [diff (signed-diff-mmsscc (:centiseconds pot)
-                                         (parse-mmsscc->cs best-champ))]
+                                         (u/parse-mmsscc->cs best-champ))]
             (printf "Diff (potential - best): %s\n" diff)))
         pot)
       (do
@@ -235,9 +224,9 @@
   (vec (for [k (range 8)
              :let [off (+ base (* k rec-size))]]
          {:off off
-          :name (rec-name data off)
-          :time (rec-time data off)
-          :cs   (rec-cs   data off)})))
+          :name (u/rec-name data off)
+          :time (u/rec-time data off)
+          :cs   (u/rec-cs   data off)})))
 
 (defn extract-practice-top8
   "Using fixed bases, return {track [{:off :name :time :cs} ...]}."
