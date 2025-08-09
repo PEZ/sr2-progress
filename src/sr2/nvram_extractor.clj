@@ -20,15 +20,19 @@
 ;; ==========================================
 ;; QUICK REFERENCE (verified facts)
 ;; ==========================================
+;;
+;; Generally related data seems to be layed out at in regions with fixed sizes.
+;; Generally data for individual tracks seems to be layed out in the order:
+;;   Desert, Mountain, Riviera, Snowy
+;;
 ;; Regions & landmarks
 ;; - Authoritative data chunk: [0x0147, 0x38C0); identical copy at +0x10000
 ;; - Known landmarks inside the chunk:
-;;   * 0x0267   Championship (primary) block (16×32-byte records)
+;;   * 0x0267   Championship (primary) block (16 32-byte records)
 ;;   * 0x0E5D   Per-track top-3: Mountain
 ;;   * 0x0F5D   Per-track top-3: Desert
 ;;   * 0x105D   Per-track top-3: Riviera
 ;;   * 0x115D   Per-track top-3: Snowy
-;;   * 0x10267  Championship (duplicate)
 ;;
 ;; Practice Top-8 per track (32-byte records)
 ;; - Base offsets (8 records, stride 0x20 each):
