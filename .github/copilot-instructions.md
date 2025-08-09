@@ -4,6 +4,15 @@ Audience: AI coding agents working in VS Code on this Clojure project.
 Goal: Be maximally effective and precise when extending extractors and docs.
 Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, and current capabilities.
 
+## Modules and façade
+
+- Public entrypoint: `sr2.nvram-extractor` (façade). This namespace exposes the stable API used by tests and docs. Keep it stable unless asked to change it.
+- Internal modules:
+  - `sr2.nv.util` (alias `u`): pure helpers (bytes, time codecs, record fields).
+  - `sr2.nv.explore` (alias `xpl`): exploratory tools (hex dumps, region scans, landmarks).
+  - `sr2.nv.extract` (alias `ext`): settled extractors (championship, per‑track top‑3, practice top‑8, player summaries).
+- Policy: Inside modules, call helpers via alias-qualified symbols (e.g. `u/decode-time`) rather than re‑exporting/wrapping. The façade binds to module vars to present the public API.
+
 
 ## Operating principles
 
@@ -25,11 +34,18 @@ Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, a
   (alength data)
   ```
 - Validate a feature you touch (choose 1-2 fast checks):
- - Validate a feature you touch (choose 1-2 fast checks):
   ```clojure
   (-> (extract-all-track-top3 data) (update-vals #(mapv :time %)))
   (take 3 (extract-championship-leaderboard data 0x267))
   (print-player-best-and-potential data "PEZ")
+  ```
+
+- Alternative usage (stay in `user` ns):
+  ```clojure
+  (require '[sr2.nvram-extractor :as ne])
+  (def data (ne/read-nvram-bytes "data/srally2-known.nv"))
+  (-> (ne/extract-all-track-top3 data) (update-vals #(mapv :time %)))
+  (take 3 (ne/extract-championship-leaderboard data 0x267))
   ```
 
 - Run the test suite from the REPL (ensure `:test` alias is active so `test/` is on classpath):
@@ -37,6 +53,7 @@ Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, a
   (require 'sr2.dev)
   (sr2.dev/run-tests)
   ```
+  Always use the REPL for tests. Do not run tests from the shell; keep the REPL as the source of truth during refactors.
 
 
 ## Clojure style for this repo
@@ -55,7 +72,7 @@ Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, a
 
 ## Data layout guardrails
 
-- Main authoritative chunk: `[0x0000, 0x38C0)`. Never read beyond this.
+- Main authoritative chunk: `[0x0000, 0x38C0)`. Never read beyond this. There is a mirrored duplicate at `+0x10000`—ignore it; do not cross the `[0x0000, 0x38C0)` boundary in extractors.
 - Record size for records with player + time is `0x20`. Stride is `0x20` for tables.
 - Known tables (see `docs/PROJECT_SUMMARY.md` for the full list and landmarks):
   - Championship top-16 block at `0x0267`.
@@ -77,6 +94,8 @@ Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, a
 4) Apply minimal edits
 - Add constants near existing ones. Reuse helpers (`le24`, `decode-time`, `rec-name`, `rec-cs`, etc.).
 - Keep public shapes consistent: vectors of maps, sorted maps for track keys.
+- Maintain the façade API: add new capabilities in `sr2.nv.extract` and bind them in the façade with direct var aliases. Avoid wrapper functions.
+- Inside modules, prefer alias-qualified calls over re-exporting symbols.
 
 5) REPL-validate
 - Run 1-3 fast checks on `data/srally2-known.nv` targeting what you changed.
@@ -96,6 +115,7 @@ Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, a
   (require 'sr2.dev)
   (sr2.dev/run-tests)
   ```
+ - Policy: Always run tests via the Calva REPL, not from the terminal. This ensures consistent classpath and fast feedback while editing.
 
 9) Code file updates
 - Discuss with the user if the code files should be updated.
@@ -115,19 +135,23 @@ At any time when you want to think together with the user, use the human intelli
 
 - Per-track top-3:
   ```clojure
+  (require '[sr2.nvram-extractor :as ne])
   (ne/extract-all-track-top3 data) ; => {track [{:time :initials} ...]}
   ```
 - Practice top-8 per track:
   ```clojure
+  (require '[sr2.nvram-extractor :as ne])
   (ne/extract-practice-top8 data) ; => {track [8 entries]}
   ```
 - Championship leaderboard:
   ```clojure
+  (require '[sr2.nvram-extractor :as ne])
   (ne/extract-championship-leaderboard data 0x267)
   ```
 
 - Hex dump a region:
   ```clojure
+  (require '[sr2.nvram-extractor :as ne])
   (ne/hex-dump data 0x0267 0x04A0)
   ```
 
