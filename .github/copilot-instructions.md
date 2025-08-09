@@ -76,15 +76,18 @@ Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, a
 - Run 1-3 fast checks on `data/srally2-known.nv` targeting what you changed.
 - Prefer value assertions over printing. If printing, keep it succinct.
 
-6) Tests (if adding behavior)
+6) Add tests (if adding behavior)
 - Add `test/` with `clojure.test` skeletons when feasible.
-- Golden tests: use `nvram_known_data.clj` expectations; verify decoded times and initials for a few slots.
+- Golden tests: use `nvram_known_data.clj` expectations and `data/srally2-known.nv`; verify decoded times and initials for a few slots.
 
 7) Docs
 - Update `docs/PROJECT_SUMMARY.md` when you discover new landmarks, or confirm hypotheses, or update the code in any significant way.
 - Include a short REPL snippet demonstrating the new capability.
 
-8) Code file updats
+8) Tests
+- Run tests to guard against regressions
+
+9) Code file updats
 - Discuss with the user if the code files should be updated.
 
 At any time when you want to think together with the user, use the human intelligence tool.
