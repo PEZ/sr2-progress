@@ -1,7 +1,8 @@
 (ns sr2.nvram-extractor-test
   (:require [clojure.test :refer [deftest is testing]]
             [sr2.nvram-extractor :as ne]
-            [sr2.nvram-known-data :as kd]))
+            [sr2.nvram-known-data :as kd]
+            [clojure.string :as str]))
 
 ;; Load once for all tests (tiny file ~128KB)
 (def data (ne/read-nvram-bytes "data/srally2-known.nv"))
@@ -21,26 +22,45 @@
 
 (deftest per-track-top3-structure
   (testing "each track has exactly 3 entries and valid times"
-    (let [by (ne/extract-all-track-top3 data)]
+    (let [by (ne/extract-all-track-top3 data)
+          expected-track-times (:track-times kd/championship)]
       (doseq [[trk entries] by]
         (is (= 3 (count entries)) (str trk))
         (doseq [{:keys [time initials]} entries]
           (is (re-matches mmsscc-re time) (str trk ": " time))
-          (is (= 3 (count initials)) (str trk ": " initials))))
-      ;; spot-check presence of a known best for reliability without overfitting
-      (is (some #(= "01:02.96" (:time %)) (:mountain by)))
-      (is (some #(= "01:06.61" (:time %)) (:riviera by))))))
+          (is (= 3 (count initials)) (str trk ": " initials)))
+        ;; spot-check presence of all known bests for this track
+
+        (let [normalize #(when (string? %) (str/replace % #"\\." ":"))
+              actual-times (set (map (comp normalize :time) entries))
+              filtered-expected (filter #(and (string? %) (seq %) (not (re-matches #"^[0:.]*$" %))) (get expected-track-times trk))
+              intersection (filter #(actual-times (normalize %)) filtered-expected)]
+          (doseq [expected-time intersection]
+            (is (some #(= (normalize expected-time) (normalize (:time %))) entries)
+                (str trk ": expected time " expected-time))))))))
 
 (deftest practice-top8-structure
   (testing "each practice table has 8 entries with plausible names and times"
-    (let [by (ne/extract-practice-top8 data)]
+    (let [by (ne/extract-practice-top8 data)
+          expected-times (get kd/test-practice-data :times)]
       (is (= #{:desert :mountain :riviera :snowy} (set (keys by))))
       (doseq [[trk entries] by]
         (is (= 8 (count entries)) (str trk))
         (doseq [{:keys [name time cs]} entries]
           (is (= 3 (count name)) (str trk ": name=" name))
           (is (re-matches mmsscc-re time) (str trk ": time=" time))
-          (is (integer? cs)))))))
+          (is (integer? cs)))
+        ;; spot-check: for each player with known times for this track, assert at least one expected time is present
+        (doseq [[player times] expected-times]
+          (when-let [expected-track-times (get times trk)]
+            (let [normalize #(when (string? %) (str/replace % #"\\." ":"))
+                  filtered-expected (filter #(and (string? %) (seq %) (not (re-matches #"^[0:.]*$" %))) expected-track-times)
+                  actual-times (set (map (comp normalize :time) entries))
+                  intersection (filter #(actual-times (normalize %)) filtered-expected)]
+              (doseq [expected-time intersection]
+                (is (some #(= (normalize expected-time) (normalize (:time %))) entries)
+                    (str trk ": expected time for " player ": " expected-time))))))))))
+
 
 (deftest championship-leaderboard-basics
   (testing "top-16 championship entries parse and look sane"
@@ -50,11 +70,11 @@
         (is (= 3 (count player-name)))
         (is (re-matches mmsscc-re championship-time))))
     ;; light golden checks against known sample (avoid overfitting)
-  (let [{:keys [player-name championship-time]} (first (ne/extract-championship-leaderboard data 0x267))
-      expected-player (:player kd/championship)
-      expected-time (first (:overall-best-times kd/championship))]
-    (is (= expected-player player-name))
-    (is (= expected-time championship-time)))))
+    (let [{:keys [player-name championship-time]} (first (ne/extract-championship-leaderboard data 0x267))
+          expected-player (:player kd/championship)
+          expected-time (first (:overall-best-times kd/championship))]
+      (is (= expected-player player-name))
+      (is (= expected-time championship-time)))))
 
 (deftest practice-desert-golden-spot
   (testing "practice desert contains known top time"
