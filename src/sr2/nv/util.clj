@@ -20,7 +20,7 @@
       (char b)
       \.)))
 
-(defn hex-to-dec [byte]
+(defn hex->dec [byte]
   (if (nil? byte) 0 (bit-and byte 0xff)))
 
 (defn bytes-slice
@@ -84,9 +84,9 @@
 (defn rec-cs
   "Centiseconds decoded from [20,21,16] as little-endian 24-bit ticks (60 ticks = 1 cs)."
   [^bytes data off]
-  (let [lsb (hex-to-dec (aget data (+ off 20)))
-        mid (hex-to-dec (aget data (+ off 21)))
-        msb (hex-to-dec (aget data (+ off 16)))]
+  (let [lsb (hex->dec (aget data (+ off 20)))
+        mid (hex->dec (aget data (+ off 21)))
+        msb (hex->dec (aget data (+ off 16)))]
     (decode-cs lsb mid msb)))
 
 (defn rec-time

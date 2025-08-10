@@ -1,36 +1,38 @@
+
 (ns sr2.nv.extract
   "Settled extractors: championship, per-track top-3, practice top-8, and player summaries."
   (:require [clojure.string :as string]
             [sr2.nv.util :as u]))
 
-;; Use helpers directly from the aliased util ns (u/..)
-
 ;; ==========================================
 ;; CHAMPIONSHIP LEADERBOARD (top-16)
 ;; ==========================================
 
+(def ^:private champ-leaderboard-base 0x267)
+(def ^:private champ-leaderboard-count 16)
+(def ^:private champ-leaderboard-rec-size 0x20)
+
 (defn extract-championship-leaderboard
-  "- Each entry is 32 bytes (0x20)
-   - time encoded in positions 16, 20, 21"
-  [data start-offset]
-  (filterv some?
-           (for [i (range 16)]
-     (let [offset (+ start-offset (* i 0x20))
-       player-name (str (u/safe-char (aget data (+ offset 1)))
-            (u/safe-char (aget data (+ offset 0)))
-            (u/safe-char (aget data (+ offset 5))))
-       time-component-16 (u/hex-to-dec (aget data (+ offset 16)))
-       time-component-20 (u/hex-to-dec (aget data (+ offset 20)))
-       time-component-21 (u/hex-to-dec (aget data (+ offset 21)))
-       extracted-time (u/decode-time time-component-20 time-component-21 time-component-16)]
-               {:entry i
-                :time-component-16 time-component-16
-                :time-component-20 time-component-20
-                :time-component-21 time-component-21
-                :championship-time extracted-time
-                :structure-notes "32-byte record, time encoded in positions 12 16, 20, 21"
-                :player-name player-name
-                :raw-bytes (mapv #(bit-and (aget data (+ offset %)) 0xFF) (range 8))}))))
+  "Extract the top-16 championship leaderboard from NVRAM data at the given offset (default 0x267).
+  Returns a vector of maps with keys: :entry :player-name :time-component-16 :time-component-20 :time-component-21 :championship-time."
+  ([^bytes data] (extract-championship-leaderboard data champ-leaderboard-base))
+  ([^bytes data offset]
+   (vec
+    (for [k (range champ-leaderboard-count)
+          :let [off (+ offset (* k champ-leaderboard-rec-size))
+                name (u/rec-name data off)
+                lsb (u/hex->dec (aget data (+ off 20)))
+                mid (u/hex->dec (aget data (+ off 21)))
+                msb (u/hex->dec (aget data (+ off 16)))
+                time (u/decode-time lsb mid msb)]]
+      {:entry k
+       :player-name name
+       :time-component-16 msb
+       :time-component-20 lsb
+       :time-component-21 mid
+       :championship-time time}))))
+
+;; Use helpers directly from the aliased util ns (u/..)
 
 (defn championship-leaderboard
   "Print championship leaderboard.
@@ -68,7 +70,7 @@
   [^bytes data base stride k]
   (let [s (+ base (* k stride))
         ch (fn [off]
-             (let [b (bit-and (aget data (+ s off)) 0xFF)]
+             (let [b (u/hex->dec (aget data (+ s off)))]
                (if (and (>= b 32) (<= b 126)) (char b) \.)))]
     (apply str (map ch [11 10 15]))))
 
@@ -77,9 +79,9 @@
   [^bytes data base stride [o0 o1 o2]]
   (vec (for [k (range 3)
              :let [s (+ base (* k stride))
-                   lsb (bit-and (aget data (+ s o0)) 0xFF)
-                   mid (bit-and (aget data (+ s o1)) 0xFF)
-                   msb (bit-and (aget data (+ s o2)) 0xFF)]]
+                   lsb (u/hex->dec (aget data (+ s o0)))
+                   mid (u/hex->dec (aget data (+ s o1)))
+                   msb (u/hex->dec (aget data (+ s o2)))]]
          (u/decode-time lsb mid msb))))
 
 (defn extract-track-top3
@@ -89,9 +91,9 @@
     (vec
      (for [k (range 3)
            :let [s   (+ base (* k stride))
-                 lsb (bit-and (aget data (+ s o0)) 0xFF)
-                 mid (bit-and (aget data (+ s o1)) 0xFF)
-                 msb (bit-and (aget data (+ s o2)) 0xFF)
+                 lsb (u/hex->dec (aget data (+ s o0)))
+                 mid (u/hex->dec (aget data (+ s o1)))
+                 msb (u/hex->dec (aget data (+ s o2)))
                    t   (u/decode-time lsb mid msb)
                  ini (rec-initials data base stride k)]]
        {:time t :initials ini}))))
@@ -237,15 +239,17 @@
          (for [[trk base] bases]
            [trk (extract-practice-top8-at data base)]))))
 
+
 (defn print-practice-top8
   "Pretty-print Top-8 practice per track from fixed bases. opts: {:order track-order}"
   ([^bytes data] (print-practice-top8 data {:order track-order}))
   ([^bytes data {:keys [order] :or {order track-order}}]
-   (println) (println "PRACTICE TOP-8 (fixed bases)")
+   (println)
+   (println "PRACTICE TOP-8 (fixed bases)")
    (println "==============================")
    (let [by (extract-practice-top8 data)]
      (doseq [trk order]
        (println (name trk))
        (doseq [{:keys [off name time]} (get by trk)]
          (println " " (format "0x%04x" off) name time)))
-  by)))
+     by)))
