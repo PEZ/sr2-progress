@@ -64,13 +64,23 @@
           (cond
             ;; Duplicate-triplet mode
             (and (= cs1 cs2) (plausible-time-cs? cs1 min-cs max-cs))
-            (recur (inc i) (place! overlays i cs1))
+            (let [pos i]
+              ;; only overlay if the 6-byte window fits within this 32-byte line
+              (recur (inc i)
+                     (if (<= (mod pos 32) 26)
+                       (place! overlays pos cs1)
+                       overlays)))
 
       ;; Known record-layout mode (covers championship/practice/top-3 records)
       ;; Require the gap bytes (i+1..i+3) to be zero as seen in verified records.
-      (and (zero? (b (inc i))) (zero? (b (+ i 2))) (zero? (b (+ i 3)))
-        (plausible-time-cs? r-cs min-cs max-cs))
-            (recur (inc i) (place! overlays i r-cs))
+            (and (zero? (b (inc i))) (zero? (b (+ i 2))) (zero? (b (+ i 3)))
+                 (plausible-time-cs? r-cs min-cs max-cs))
+            (let [pos (inc i)]
+              ;; start digits in the zero gap after msb and keep within the same line
+              (recur (inc i)
+                     (if (<= (mod pos 32) 26)
+                       (place! overlays pos r-cs)
+                       overlays)))
 
             :else
             (recur (inc i) overlays)))))))
