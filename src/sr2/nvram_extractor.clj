@@ -1,9 +1,14 @@
 (ns sr2.nvram-extractor
   "Sega Rally 2 NVRAM — REPL examples without façade re-exports.
   Use alias-qualified calls: u/*, ext/*, xpl/*. See docs/PROJECT_SUMMARY.md for layout."
-  (:require [sr2.nv.util :as u]
+  (:require [sr2.dev :as dev]
+            [sr2.nv.util :as u]
             [sr2.nv.explore :as xpl]
             [sr2.nv.extract :as ext]))
+
+(comment
+  (dev/run-tests)
+  :rcf)
 
 ;; ------------------------------------------
 ;; Extractors quickstart (established capabilities)
@@ -77,3 +82,6 @@
   (xpl/hex-dump-landmark-regions data {:blank-byte 0x00 :min-blank-len 32})
   :rcf)
 
+(comment
+  (dev/run-tests)
+  :rcf)
