@@ -209,6 +209,22 @@
                       start end size (if (seq tags) (str tags) "")))
      (hex-dump data start end))))
 
+(defn hex-dump-nonblank-with-times
+  "Hex dump all non-blank regions with headers and tags, overlaying plausible time windows.
+   scan-opts: {:blank-byte 0x00 :min-blank-len 1}
+   time-opts: {:min-cs 300 :max-cs 60000}"
+  ([^bytes data]
+   (hex-dump-nonblank-with-times data {:blank-byte 0 :min-blank-len 1} {}))
+  ([^bytes data scan-opts]
+   (hex-dump-nonblank-with-times data scan-opts {}))
+  ([^bytes data {:keys [blank-byte min-blank-len]} time-opts]
+   (doseq [{:keys [start end tags size]} (region-summary data {:blank-byte (or blank-byte 0)
+                                                              :min-blank-len (or min-blank-len 1)})]
+     (println)
+     (println (format "Region %04x->%04x (size %d) %s"
+                      start end size (if (seq tags) (str tags) "")))
+     (hex-dump-with-times data start end time-opts))))
+
 ;; ==========================================
 ;; LANDMARK-FORWARD CHOPPING (stop at blank run)
 ;; ==========================================

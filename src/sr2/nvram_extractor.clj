@@ -66,7 +66,12 @@
   (xpl/hex-dump-nonblank data)
   (xpl/hex-dump-nonblank data {:blank-byte 0x00 :min-blank-len 32})
 
+  ;; Hex dumps with time overlays
+  (xpl/hex-dump-nonblank-with-times data)
+  (xpl/hex-dump-nonblank-with-times data {:blank-byte 0x00 :min-blank-len 32} {:min-cs 300 :max-cs 60000})
+
   (xpl/hex-dump-with-times data 0x0267 0x02C7)
+  (xpl/hex-dump-with-times data 0x1860 0x1A40)
 
 
   ;; Region scanning and summaries
