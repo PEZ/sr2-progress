@@ -1,0 +1,7 @@
+{:customREPLCommandSnippets
+ [{:name "Run tests (sr2.dev)"
+   :key "t"
+   :repl "clj"
+   :ns "sr2.dev"
+   :snippet (do (sr2.dev/reload-sources) (sr2.dev/load-tests) (sr2.dev/run-tests))
+   :evaluationSendCodeToOutputWindow true}]}
