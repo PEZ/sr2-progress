@@ -24,8 +24,8 @@
 
   ;; Per-track Top-3
   (ext/decode-at-offsets data 0x0E5D 0x20 [30 31 26])
-  (ext/extract-track-top3 data (get ext/track-tables :mountain))
-  (ext/extract-all-track-top3 data)
+  (ext/extract-track-top3 data (get ext/championship-top-3-track-tables :mountain))
+  (ext/extract-all-championship-track-top3 data)
   (ext/print-all-track-top3 data)
   (ext/print-all-track-top3 data {:with-initials? true})
   (ext/compare-top3 data {:desert   ["00:57.03" "00:57.23" "00:57.27"]

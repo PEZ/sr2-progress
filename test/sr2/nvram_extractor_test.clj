@@ -24,7 +24,7 @@
 
 (deftest per-track-top3-structure
   (testing "each track has exactly 3 entries and valid times"
-  (let [by (ext/extract-all-track-top3 data)
+  (let [by (ext/extract-all-championship-track-top3 data)
           expected-track-times (:track-times kd/championship)]
       (doseq [[trk entries] by]
         (is (= 3 (count entries)) (str trk))

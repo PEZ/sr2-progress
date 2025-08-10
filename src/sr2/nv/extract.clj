@@ -55,7 +55,7 @@
 ;; TRACK TOP-3 EXTRACTION (reverse engineered)
 ;; ==========================================
 
-(def track-tables
+(def championship-top-3-track-tables
   "Discovered top-3 per-track table locations in NVRAM.
    Each table has 3 records at base, base+0x20, base+0x40.
    Time bytes live at offsets [30 31 26] within each 32-byte record."
@@ -98,11 +98,11 @@
                  ini (rec-initials data base stride k)]]
        {:time t :initials ini}))))
 
-(defn extract-all-track-top3
+(defn extract-all-championship-track-top3
   "Read all discovered per-track top-3 tables and return {track [{:time :initials} ...]}"
   [^bytes data]
   (into (sorted-map)
-        (for [[trk spec] track-tables]
+        (for [[trk spec] championship-top-3-track-tables]
           [trk (extract-track-top3 data spec)])))
 
 (defn print-all-track-top3
@@ -111,7 +111,7 @@
   ([^bytes data {:keys [with-initials?] :or {with-initials? false}}]
    (println "\nTRACK TOP-3 TIMES:")
    (println "==================")
-   (doseq [[trk entries] (extract-all-track-top3 data)]
+   (doseq [[trk entries] (extract-all-championship-track-top3 data)]
      (let [fmt (fn [{:keys [time initials]}]
                  (if with-initials?
                    (str time " (" initials ")")
@@ -123,7 +123,7 @@
   "Compare extracted top-3 with an expected map {track [t1 t2 t3]}.
    Returns only tracks where there is a difference."
   [^bytes data expected]
-  (let [got (update-vals (extract-all-track-top3 data) #(mapv :time %))]
+  (let [got (update-vals (extract-all-championship-track-top3 data) #(mapv :time %))]
     (into (sorted-map)
           (for [[trk exp] expected
                 :let [g (get got trk)]
@@ -137,7 +137,7 @@
 (defn player-best-per-track
   "Return {track {:time :initials}} for tracks where player's initials appear in top-3."
   [^bytes data player]
-  (let [by-track (extract-all-track-top3 data)]
+  (let [by-track (extract-all-championship-track-top3 data)]
     (into (sorted-map)
           (keep (fn [[trk entries]]
                   (let [mine (filter #(= (:initials %) player) entries)]
