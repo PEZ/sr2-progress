@@ -11,7 +11,7 @@ Supermodel repo: https://github.com/trzy/Supermodel
 - `data/`
   - `srally2-known.nv` – known-good NVRAM sample used for exploration and verification
 - `src/sr2/`
-  - `nvram_extractor.clj` – façade re-exporting extractors and helpers; keeps a stable public API
+  - `nvram_extractor.clj` – REPL examples host (rich comment forms only).
   - `nv/` – modularized namespaces
     - `nv/explore.clj` – exploratory tools (hex dumps, region scans, landmark-bounded dumps)
     - `nv/extract.clj` – settled extractors (championship, per-track top‑3, practice top‑8, player summaries)
@@ -37,7 +37,7 @@ Planned/known data sets (some implemented, some pending):
 
 ## What we know about the NVRAM layout (from this repo’s exploration)
 
-- Authoritative main chunk with all relevant data (for our purposes): `0x0000 -> 0x38C0)`.
+- Authoritative main chunk with all relevant data (for our purposes): `[0x0000, 0x38C0)`.
 - Landmark offsets (inside the main chunk):
   - `0x0267` – Championship primary block (16 × 32-byte records)
   - Top-3 per-track tables (3 records each, stride `0x20`):
@@ -48,7 +48,7 @@ Planned/known data sets (some implemented, some pending):
   - Player initials/name bytes: `[1, 0, 5]` (X, Y, Z)
   - Time encodings are 24-bit little-endian counters stored in various positions
   - Championship/practice record time bytes: `[20, 21, 16]` (lsb, mid, msb)
-  - Per-track top-3 record time bytes: `[30, 31, 26]`
+  - Per-track top-3 record time bytes: `[30, 31, 26]` and initials bytes `[11, 10, 15]`
 - Time unit: ticks, with `60 ticks = 1 centisecond`. Conversion: `centiseconds = (le24 bytes) / 60`. Format helper: `MM:SS.cc`.
 
 
@@ -90,34 +90,31 @@ Data shapes use simple Clojure maps/vectors and well-named keys to facilitate fu
 
 ## Quick REPL try-it
 
-Using Calva: jack-in, open `src/sr2/nvram_extractor.clj` (façade), and evaluate small expressions step by step.
-
-Example sessions (these are the exact forms the team used while developing):
+Using Calva: jack-in, open `src/sr2/nvram_extractor.clj` (examples only), and evaluate small expressions from the rich comment forms. Alternatively, stay in `user` and require the modules directly:
 
 ```clojure
-(in-ns 'user)
-(require '[sr2.nvram-extractor :as ne])
-(def data (ne/read-nvram-bytes "data/srally2-known.nv"))
-(alength data) ; => 131397
+(require '[sr2.nv.util :as u]
+     '[sr2.nv.extract :as ext]
+     '[sr2.nv.explore :as xpl])
+(def data (u/read-nvram-bytes "data/srally2-known.nv"))
+(alength data)
 
 ; Per-track Top-3 (times only)
-(-> (ne/extract-all-track-top3 data)
-    (update-vals #(mapv :time %)))
-; => {:desert ["00:57.03" "00:57.05" "00:57.27"],
-;     :mountain ["01:02.96" "01:03.07" "01:03.15"],
-;     :riviera ["01:06.61" "01:07.17" "01:07.18"],
-;     :snowy ["01:00.08" "01:00.44" "01:00.49"]}
+(-> (ext/extract-all-track-top3 data)
+  (update-vals #(mapv :time %)))
 
-; Practice Top-8 for Desert
-(first (ne/extract-practice-top8 data))
-; => [:desert [{:off 0x1567, :name "PEZ", :time "02:46.83", :cs ...} ...]]
+; Practice Top-8 for Desert (first entry)
+(-> (ext/extract-practice-top8 data) first)
 
 ; Championship Top-16 (structure)
-(take 3 (ne/extract-championship-leaderboard data 0x267))
-; => ({:entry 0, :player-name "PEZ", :championship-time "04:09.54", ...} ...)
+(take 3 (ext/extract-championship-leaderboard data))
 
 ; Player potential vs best
-(ne/print-player-best-and-potential data "PEZ")
+(ext/print-player-best-and-potential data "PEZ")
+
+; Exploratory summaries
+(take 2 (xpl/region-summary data))
+(take 2 (xpl/landmark-regions data))
 ```
 
 ## Known-good fixtures and references
