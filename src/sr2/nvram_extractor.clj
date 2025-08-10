@@ -55,14 +55,18 @@
   ;; Quick glance: counts and last per track
   (-> (ext/extract-championship-best-sector-times data)
       (update-vals (fn [v] {:count (count v) :last (last v)})))
+  (ext/print-championship-sectors data)
+  (ext/print-championship-sectors data {:track :riviera})
+  (ext/extract-championship-sector-splits data)
+  (ext/print-championship-sectors data {:mode :splits})
+
 
   ;; Practice sectors per track
   (ext/extract-practice-best-sector-times data)
-  ;; Pretty printers
-  (ext/print-championship-sectors data)
-  (ext/print-championship-sectors data {:track :riviera})
   (ext/print-practice-sectors data)
   (ext/print-practice-sectors data {:track "Snowy"})
+  (ext/extract-practice-sector-splits data)
+  (ext/print-practice-sectors data {:mode :splits :track :riviera})
 
   ;; Single-record helpers
   (u/rec-name data 0x0267)

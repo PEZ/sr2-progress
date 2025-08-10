@@ -316,6 +316,29 @@
 ;; Pretty printers for sector tables
 ;; ------------------------------------------
 
+(defn- cumulative->splits
+  "From a vector of cumulative MM:SS.cc times, compute per-sector split durations (same format).
+   Assumes non-decreasing cumulative values."
+  [cum]
+  (when (seq cum)
+    (let [cs (mapv u/parse-mmsscc->cs cum)]
+      (->> (cons 0 cs)
+           (partition 2 1)
+           (mapv (fn [[a b]] (u/cs->mmsscc (max 0 (- b a))))))))
+)
+
+(defn extract-championship-sector-splits
+  "Return {track [MM:SS.cc ...]} per-sector split durations (derived from cumulative)."
+  [^bytes data]
+  (-> (extract-championship-best-sector-times data)
+      (update-vals cumulative->splits)))
+
+(defn extract-practice-sector-splits
+  "Return {track [MM:SS.cc ...]} per-sector split durations (derived from cumulative)."
+  [^bytes data]
+  (-> (extract-practice-best-sector-times data)
+      (update-vals cumulative->splits)))
+
 (defn- normalize-track
   "Coerce user-provided track selector to a canonical keyword. Returns nil if unknown."
   [t]
@@ -332,16 +355,20 @@
 (defn print-championship-sectors
   "Pretty-print championship best sector times. Options:
    {:track <keyword|string>  ; print only this track
-    :order [:desert :mountain :snowy :riviera]}"
+    :order [:desert :mountain :snowy :riviera]
+    :mode  :cumulative | :splits}"
   ([^bytes data]
    (print-championship-sectors data {:order track-order}))
-  ([^bytes data {:keys [track order] :or {order track-order}}]
-   (let [by (extract-championship-best-sector-times data)
+  ([^bytes data {:keys [track order mode] :or {order track-order mode :cumulative}}]
+   (let [by (case mode
+              :splits (extract-championship-sector-splits data)
+              :cumulative (extract-championship-best-sector-times data)
+              (extract-championship-best-sector-times data))
          sel (if-let [t (normalize-track track)]
                (filter some? [t])
                (filter #(contains? by %) order))]
      (println)
-     (println "CHAMPIONSHIP SECTORS")
+     (println (if (= mode :splits) "CHAMPIONSHIP SECTORS (splits)" "CHAMPIONSHIP SECTORS"))
      (println "====================")
      (doseq [trk sel]
        (print-track-sectors trk (get by trk)))
@@ -351,13 +378,16 @@
   "Pretty-print practice best sector times. Options are the same as print-championship-sectors."
   ([^bytes data]
    (print-practice-sectors data {:order track-order}))
-  ([^bytes data {:keys [track order] :or {order track-order}}]
-   (let [by (extract-practice-best-sector-times data)
+  ([^bytes data {:keys [track order mode] :or {order track-order mode :cumulative}}]
+   (let [by (case mode
+              :splits (extract-practice-sector-splits data)
+              :cumulative (extract-practice-best-sector-times data)
+              (extract-practice-best-sector-times data))
          sel (if-let [t (normalize-track track)]
                (filter some? [t])
                (filter #(contains? by %) order))]
      (println)
-     (println "PRACTICE SECTORS")
+     (println (if (= mode :splits) "PRACTICE SECTORS (splits)" "PRACTICE SECTORS"))
      (println "=================")
      (doseq [trk sel]
        (print-track-sectors trk (get by trk)))
