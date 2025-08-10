@@ -65,9 +65,11 @@
               rec-zero-gap? (and (zero? (b (inc i))) (zero? (b (+ i 2))) (zero? (b (+ i 3))))
       dup? (and (= cs1 cs2) (plausible-time-cs? cs1 min-cs max-cs))
       rec? (and rec-zero-gap? (plausible-time-cs? r-cs min-cs max-cs))
-              acc' (cond-> acc
-        dup? (conj {:start i :digits (->digits cs1) :score 1 :kind :dup})
-        rec? (conj {:start (inc i) :digits (->digits r-cs) :score 2 :kind :record}))]
+      ;; For :record, align overlay to the actual 6-byte window [i..i+5]
+      ;; so that all 6 digits fit within the window and don't spill past row/region end.
+      acc' (cond-> acc
+    dup? (conj {:start i :digits (->digits cs1) :score 1 :kind :dup})
+    rec? (conj {:start i :digits (->digits r-cs) :score 2 :kind :record}))]
           (recur (inc i) acc'))))))
 
 (defn- choose-row-overlays
