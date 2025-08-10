@@ -66,6 +66,9 @@
   (xpl/hex-dump-nonblank data)
   (xpl/hex-dump-nonblank data {:blank-byte 0x00 :min-blank-len 32})
 
+  (xpl/hex-dump-with-times data 0x0267 0x02C7)
+
+
   ;; Region scanning and summaries
   (def blanks (xpl/find-blank-ranges data))
   (take 3 blanks)
@@ -80,6 +83,7 @@
   (xpl/find-next-blank-run data 0x0267)
   (take 4 (xpl/landmark-regions data))
   (xpl/hex-dump-landmark-regions data {:blank-byte 0x00 :min-blank-len 32})
+
   :rcf)
 
 (comment

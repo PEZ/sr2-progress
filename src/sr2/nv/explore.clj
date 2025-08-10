@@ -23,6 +23,84 @@
           (println (format "%04X: %-47s  |%s|" i hexs ascii))
           (recur line-end))))))
 
+;; Hex dump variant that overlays plausible time patterns (6 bytes = two equal 24-bit values)
+(defn- plausible-time-cs?
+  "Heuristic: centiseconds in [min-cs,max-cs] inclusive. Defaults cover up to 10:59.99."
+  ([cs] (plausible-time-cs? cs 50 65999))
+  ([cs min-cs max-cs]
+   (and (<= (long min-cs) cs) (<= cs (long max-cs)))))
+
+(defn- scan-time-overlays
+  "Return a map {idx->char} overlaying MMSSCC digits for any 6-byte window [i..i+5]
+   that looks like a plausible time. Detection modes:
+   - duplicate-triplet: bytes i..i+2 and i+3..i+5 decode to equal, plausible times
+   - record-layout: treat [i, i+4, i+5] as [msb,lsb,mid] → plausible time (matches known 32-byte records)
+   opts: {:min-cs 50 :max-cs 65999}."
+  [^bytes data start end {:keys [min-cs max-cs] :or {min-cs 50 max-cs 65999}}]
+  (let [n (alength data)
+        start (max 0 (min (long start) n))
+        end (max start (min (long end) n))]
+    (loop [i start, overlays {}]
+      (if (> (+ i 5) (dec end))
+        overlays
+        (let [b (fn [j] (bit-and (aget data j) 0xFF))
+              lsb1 (b i) mid1 (b (inc i)) msb1 (b (+ i 2))
+              lsb2 (b (+ i 3)) mid2 (b (+ i 4)) msb2 (b (+ i 5))
+              cs1 (u/decode-cs lsb1 mid1 msb1)
+              cs2 (u/decode-cs lsb2 mid2 msb2)
+              ;; record-layout pattern: [msb at i, lsb at i+4, mid at i+5]
+              r-msb (b i) r-lsb (b (+ i 4)) r-mid (b (+ i 5))
+              r-cs  (u/decode-cs r-lsb r-mid r-msb)
+              place! (fn [ov start-idx cs]
+                       (let [digits (-> (u/cs->mmsscc cs)
+                                        (string/replace ":" "")
+                                        (string/replace "." ""))
+                             occupied? (some ov (range start-idx (+ start-idx 6)))]
+                         (if (or occupied? (not= 6 (count digits)))
+                           ov
+                           (reduce-kv (fn [m k ch] (assoc m (+ start-idx k) ch))
+                                      ov
+                                      (into (sorted-map) (map-indexed vector digits))))))]
+          (cond
+            ;; Duplicate-triplet mode
+            (and (= cs1 cs2) (plausible-time-cs? cs1 min-cs max-cs))
+            (recur (inc i) (place! overlays i cs1))
+
+      ;; Known record-layout mode (covers championship/practice/top-3 records)
+      ;; Require the gap bytes (i+1..i+3) to be zero as seen in verified records.
+      (and (zero? (b (inc i))) (zero? (b (+ i 2))) (zero? (b (+ i 3)))
+        (plausible-time-cs? r-cs min-cs max-cs))
+            (recur (inc i) (place! overlays i r-cs))
+
+            :else
+            (recur (inc i) overlays)))))))
+
+(defn hex-dump-with-times
+  "Hex dump like hex-dump, but overlays any detected 6-byte time windows with MMSSCC digits
+   in the ASCII gutter. opts: {:min-cs 50 :max-cs 65999}."
+  ([^bytes data start end]
+   (hex-dump-with-times data start end {}))
+  ([^bytes data start end opts]
+   (let [n (alength data)
+         start (max 0 (min (long start) n))
+         end (max start (min (long end) n))
+         overlays (scan-time-overlays data start end opts)]
+     (loop [i start]
+       (when (< i end)
+         (let [line-end (min end (+ i 32))
+               idxs (range i line-end)
+               bs   (map #(bit-and (aget data %) 0xFF) idxs)
+               hexs (->> bs (map #(format "%02X" %))
+                         (partition-all 8)
+                         (map #(string/join " " %))
+                         (string/join "  "))
+               ascii (apply str (map (fn [idx b]
+                                       (char (int (or (get overlays idx)
+                                                      (u/safe-char b)))))
+                                     idxs bs))]
+           (println (format "%04X: %-47s  |%s|" i hexs ascii))
+           (recur line-end)))))))
+
 ;; ==========================================
 ;; REGION SCANNING (blank/non-blank + tagging)
 ;; ==========================================

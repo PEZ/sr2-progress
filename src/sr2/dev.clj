@@ -7,7 +7,8 @@
   '[sr2.nvram-extractor-test])
 
 (def ^:private source-namespaces
-  '[sr2.nvram-extractor])
+  '[sr2.nvram-extractor
+    sr2.nv.explore])
 
 (defn load-tests
   "Require all known test namespaces. Extend the vector when new tests are added."
