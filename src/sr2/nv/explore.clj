@@ -1,6 +1,7 @@
 (ns sr2.nv.explore
   "Exploratory tools: hex dumps, blank/non-blank scanning, and landmark-bounded regions."
   (:require [clojure.string :as string]
+            [clojure.set :as set]
             [sr2.nv.util :as u]))
 
 ;; Simple hex dump utility
@@ -25,76 +26,98 @@
 
 ;; Hex dump variant that overlays plausible time patterns (6 bytes = two equal 24-bit values)
 (defn- plausible-time-cs?
-  "Heuristic: centiseconds in [min-cs,max-cs] inclusive. Defaults cover up to 10:59.99."
-  ([cs] (plausible-time-cs? cs 50 65999))
+  "Heuristic: centiseconds in [min-cs,max-cs] inclusive. Defaults 3s..10:00.00."
+  ([cs] (plausible-time-cs? cs 300 60000))
   ([cs min-cs max-cs]
    (and (<= (long min-cs) cs) (<= cs (long max-cs)))))
 
-(defn- scan-time-overlays
-  "Return a map {idx->char} overlaying MMSSCC digits for any 6-byte window [i..i+5]
-   that looks like a plausible time. Detection modes:
-   - duplicate-triplet: bytes i..i+2 and i+3..i+5 decode to equal, plausible times
-   - record-layout: treat [i, i+4, i+5] as [msb,lsb,mid] → plausible time (matches known 32-byte records)
-   opts: {:min-cs 50 :max-cs 65999}."
-  [^bytes data start end {:keys [min-cs max-cs] :or {min-cs 50 max-cs 65999}}]
-  (let [n (alength data)
-        start (max 0 (min (long start) n))
-        end (max start (min (long end) n))]
-    (loop [i start, overlays {}]
-      (if (> (+ i 5) (dec end))
-        overlays
-        (let [b (fn [j] (bit-and (aget data j) 0xFF))
-              lsb1 (b i) mid1 (b (inc i)) msb1 (b (+ i 2))
+
+;; ------------------------------------------
+;; Row-wise sliding-window time overlays
+;; ------------------------------------------
+
+(defn- ->digits
+  "MMSSCC digits string from centiseconds."
+  [cs]
+  (-> (u/cs->mmsscc cs)
+      (string/replace ":" "")
+      (string/replace "." "")))
+
+(defn- row-candidates
+  "Within [row-start,row-end), return non-overlapping candidate windows of length 6
+  that plausibly encode a time. Each candidate is {:start i :digits s :score n}.
+  Two detection modes per 6-byte window i..i+5:
+  - duplicate-triplet: [i..i+2] and [i+3..i+5] decode to the same plausible cs (score 1)
+  - record-layout: [msb at i, zeros i+1..i+3, lsb at i+4, mid at i+5] (score 2)
+  opts: {:min-cs 300 :max-cs 60000}"
+  [^bytes data row-start row-end {:keys [min-cs max-cs] :or {min-cs 300 max-cs 60000}}]
+  (let [b (fn [j] (bit-and (aget data j) 0xFF))
+        last-start (max row-start (- row-end 6))]
+    (loop [i row-start, acc []]
+      (if (> i last-start)
+        acc
+        (let [lsb1 (b i) mid1 (b (inc i)) msb1 (b (+ i 2))
               lsb2 (b (+ i 3)) mid2 (b (+ i 4)) msb2 (b (+ i 5))
               cs1 (u/decode-cs lsb1 mid1 msb1)
               cs2 (u/decode-cs lsb2 mid2 msb2)
-              ;; record-layout pattern: [msb at i, lsb at i+4, mid at i+5]
               r-msb (b i) r-lsb (b (+ i 4)) r-mid (b (+ i 5))
               r-cs  (u/decode-cs r-lsb r-mid r-msb)
-              place! (fn [ov start-idx cs]
-                       (let [digits (-> (u/cs->mmsscc cs)
-                                        (string/replace ":" "")
-                                        (string/replace "." ""))
-                             occupied? (some ov (range start-idx (+ start-idx 6)))]
-                         (if (or occupied? (not= 6 (count digits)))
-                           ov
-                           (reduce-kv (fn [m k ch] (assoc m (+ start-idx k) ch))
-                                      ov
-                                      (into (sorted-map) (map-indexed vector digits))))))]
-          (cond
-            ;; Duplicate-triplet mode
-            (and (= cs1 cs2) (plausible-time-cs? cs1 min-cs max-cs))
-            (let [pos i]
-              ;; only overlay if the 6-byte window fits within this 32-byte line
-              (recur (inc i)
-                     (if (<= (mod pos 32) 26)
-                       (place! overlays pos cs1)
-                       overlays)))
+              rec-zero-gap? (and (zero? (b (inc i))) (zero? (b (+ i 2))) (zero? (b (+ i 3))))
+      dup? (and (= cs1 cs2) (plausible-time-cs? cs1 min-cs max-cs))
+      rec? (and rec-zero-gap? (plausible-time-cs? r-cs min-cs max-cs))
+              acc' (cond-> acc
+        dup? (conj {:start i :digits (->digits cs1) :score 1 :kind :dup})
+        rec? (conj {:start (inc i) :digits (->digits r-cs) :score 2 :kind :record}))]
+          (recur (inc i) acc'))))))
 
-      ;; Known record-layout mode (covers championship/practice/top-3 records)
-      ;; Require the gap bytes (i+1..i+3) to be zero as seen in verified records.
-            (and (zero? (b (inc i))) (zero? (b (+ i 2))) (zero? (b (+ i 3)))
-                 (plausible-time-cs? r-cs min-cs max-cs))
-            (let [pos (inc i)]
-              ;; start digits in the zero gap after msb and keep within the same line
-              (recur (inc i)
-                     (if (<= (mod pos 32) 26)
-                       (place! overlays pos r-cs)
-                       overlays)))
+(defn- choose-row-overlays
+  "Greedy selection of non-overlapping candidates in a row. Prefer higher :score, then earlier :start."
+  [cands]
+  (let [cands (sort-by (juxt (comp - :score) (comp - :start)) cands)]
+    (loop [chosen []
+           occ #{}
+           [c & more] cands]
+      (if (nil? c)
+        chosen
+        (let [rng (set (range (:start c) (+ (:start c) 6)))]
+          (if (empty? (set/intersection occ rng))
+            (recur (conj chosen c) (into occ rng) more)
+            (recur chosen occ more)))))))
 
-            :else
-            (recur (inc i) overlays)))))))
+(defn- scan-range-candidates
+  "Scan [start,end) and return all time-window candidates (same shape as row-candidates)."
+  [^bytes data start end opts]
+  (row-candidates data start end opts))
+
+(defn- choose-overlays
+  "Choose a global set of non-overlapping overlays from a candidate list."
+  [cands]
+  (choose-row-overlays cands))
+
+(defn- render-row-ascii-with-overlays
+  "Render ASCII gutter for one row [row-start,row-end), overlaying selected time candidates."
+  [^bytes data row-start row-end overlays]
+  (let [idxs (range row-start row-end)
+        bs   (map #(bit-and (aget data %) 0xFF) idxs)
+        base (char-array (map u/safe-char bs))
+        cands overlays]
+    (doseq [{:keys [start digits]} cands]
+      (doseq [[k ch] (map-indexed vector digits)]
+        (let [j (- (+ start k) row-start)]
+          (when (<= 0 j (dec (alength base)))
+            (aset base j ch)))))
+    (apply str base)))
 
 (defn hex-dump-with-times
   "Hex dump like hex-dump, but overlays any detected 6-byte time windows with MMSSCC digits
-   in the ASCII gutter. opts: {:min-cs 50 :max-cs 65999}."
+   in the ASCII gutter. opts: {:min-cs 300 :max-cs 60000}."
   ([^bytes data start end]
    (hex-dump-with-times data start end {}))
   ([^bytes data start end opts]
    (let [n (alength data)
          start (max 0 (min (long start) n))
-         end (max start (min (long end) n))
-         overlays (scan-time-overlays data start end opts)]
+    end (max start (min (long end) n))
+    overlays (choose-overlays (scan-range-candidates data start end opts))]
      (loop [i start]
        (when (< i end)
          (let [line-end (min end (+ i 32))
@@ -104,10 +127,7 @@
                          (partition-all 8)
                          (map #(string/join " " %))
                          (string/join "  "))
-               ascii (apply str (map (fn [idx b]
-                                       (char (int (or (get overlays idx)
-                                                      (u/safe-char b)))))
-                                     idxs bs))]
+      ascii (render-row-ascii-with-overlays data i line-end overlays)]
            (println (format "%04X: %-47s  |%s|" i hexs ascii))
            (recur line-end)))))))
 

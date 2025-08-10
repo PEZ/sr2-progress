@@ -103,3 +103,12 @@
         ;; Expect to see ASCII gutter include 6 digits 010203 contiguous at positions corresponding to 10..15
         (is (re-find #"\|.{10}010203" line) line)))))
 
+(deftest hex-dump-with-times-rowwise-filtering
+  (testing "row-wise scan filters out implausible 000076 and keeps plausible times"
+    (let [out (with-out-str (xpl/hex-dump-with-times data 0x0267 (+ 0x0267 0x60)))
+          lines (str/split-lines out)]
+      ;; Should not contain 000076 anywhere in the ASCII gutters
+      (is (not (re-find #"000076" out)))
+      ;; Should contain at least one known plausible championship time pattern on first couple of rows
+      (is (some #(re-find #"\|.*\d{6}.*\|" %) (take 3 lines))))))
+
