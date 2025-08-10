@@ -121,6 +121,37 @@
       (doseq [trk (keys expected)]
         (is (= (get expected trk) (get got trk)) (str trk ": sector times differ"))))))
 
+(deftest championship-sector-splits-sanity
+  (testing "championship sector splits sum to last cumulative and contain no zero splits"
+    (let [cum (ext/extract-championship-best-sector-times data)
+          spl (ext/extract-championship-sector-splits data)]
+      (doseq [[trk ctimes] cum]
+        (let [stimes (get spl trk)
+              sum-s (reduce + (map u/parse-mmsscc->cs stimes))
+              last-c (u/parse-mmsscc->cs (last ctimes))]
+          (is (= sum-s last-c) (str trk ": sum(splits) != last cumulative"))
+          (is (not-any? #(= % "00:00.00") stimes) (str trk ": contains zero-length split"))))
+      ;; Riviera has a duplicate lap-boundary time; after suppression of zero-length splits, it should be one fewer than cumulative
+      (let [rc (get cum :riviera)
+            rs (get spl :riviera)
+            pos-count (->> (map u/parse-mmsscc->cs rc)
+                           (cons 0)
+                           (partition 2 1)
+                           (filter (fn [[a b]] (> b a)))
+                           count)]
+        (is (= (count rs) pos-count) ":riviera splits count != positive deltas")))))
+
+(deftest practice-sector-splits-sanity
+  (testing "practice sector splits sum to last cumulative and contain no zero splits"
+    (let [cum (ext/extract-practice-best-sector-times data)
+          spl (ext/extract-practice-sector-splits data)]
+      (doseq [[trk ctimes] cum]
+        (let [stimes (get spl trk)
+              sum-s (reduce + (map u/parse-mmsscc->cs stimes))
+              last-c (u/parse-mmsscc->cs (last ctimes))]
+          (is (= sum-s last-c) (str trk ": sum(splits) != last cumulative"))
+          (is (not-any? #(= % "00:00.00") stimes) (str trk ": contains zero-length split")))))))
+
 
 
 

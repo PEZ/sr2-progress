@@ -324,8 +324,11 @@
     (let [cs (mapv u/parse-mmsscc->cs cum)]
       (->> (cons 0 cs)
            (partition 2 1)
-           (mapv (fn [[a b]] (u/cs->mmsscc (max 0 (- b a))))))))
-)
+           (keep (fn [[a b]]
+                   (let [d (- b a)]
+                     (when (pos? d)
+                       (u/cs->mmsscc d)))))
+           vec))))
 
 (defn extract-championship-sector-splits
   "Return {track [MM:SS.cc ...]} per-sector split durations (derived from cumulative)."
