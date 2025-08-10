@@ -58,6 +58,11 @@
 
   ;; Practice sectors per track
   (ext/extract-practice-best-sector-times data)
+  ;; Pretty printers
+  (ext/print-championship-sectors data)
+  (ext/print-championship-sectors data {:track :riviera})
+  (ext/print-practice-sectors data)
+  (ext/print-practice-sectors data {:track "Snowy"})
 
   ;; Single-record helpers
   (u/rec-name data 0x0267)

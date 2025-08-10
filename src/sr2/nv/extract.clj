@@ -288,15 +288,14 @@
    Uses record layout [msb,0,0,0,lsb,mid,?,0] → u/decode-time lsb mid msb. Returns a vector of MM:SS.cc strings."
   [^bytes data start]
   (let [end (region-end-at-zero-terminator data start)
-        last-allowed (long (- end 6))]
-    (loop [i (long start), acc (transient [])]
-      (if (> i last-allowed)
-        (persistent! acc)
-        (let [msb (u/hex->dec (aget data i))
-              lsb (u/hex->dec (aget data (+ i 4)))
-              mid (u/hex->dec (aget data (+ i 5)))
-              t   (u/decode-time lsb mid msb)]
-          (recur (+ i sector-stride) (conj! acc t)))))))
+    last-inclusive (long (- end 6))
+    idxs (range (long start) (inc last-inclusive) sector-stride)]
+  (mapv (fn [i]
+      (let [msb (u/hex->dec (aget data i))
+          lsb (u/hex->dec (aget data (+ i 4)))
+          mid (u/hex->dec (aget data (+ i 5)))]
+        (u/decode-time lsb mid msb)))
+      idxs)))
 
 (defn extract-championship-best-sector-times
   "Return {track [MM:SS.cc ...]} of championship best sector times per track.
@@ -312,3 +311,54 @@
   (into (sorted-map)
         (for [[trk base] practice-sector-bases]
           [trk (decode-sector-times-at data base)])))
+
+;; ------------------------------------------
+;; Pretty printers for sector tables
+;; ------------------------------------------
+
+(defn- normalize-track
+  "Coerce user-provided track selector to a canonical keyword. Returns nil if unknown."
+  [t]
+  (cond
+    (keyword? t) (#{:desert :mountain :snowy :riviera} t)
+    (string? t) (let [k (keyword (clojure.string/lower-case t))]
+                  (#{:desert :mountain :snowy :riviera} k))
+    :else nil))
+
+(defn- print-track-sectors
+  [trk times]
+  (println (format "%9s (%d): %s" (name trk) (count times) (clojure.string/join ", " times))))
+
+(defn print-championship-sectors
+  "Pretty-print championship best sector times. Options:
+   {:track <keyword|string>  ; print only this track
+    :order [:desert :mountain :snowy :riviera]}"
+  ([^bytes data]
+   (print-championship-sectors data {:order track-order}))
+  ([^bytes data {:keys [track order] :or {order track-order}}]
+   (let [by (extract-championship-best-sector-times data)
+         sel (if-let [t (normalize-track track)]
+               (filter some? [t])
+               (filter #(contains? by %) order))]
+     (println)
+     (println "CHAMPIONSHIP SECTORS")
+     (println "====================")
+     (doseq [trk sel]
+       (print-track-sectors trk (get by trk)))
+     by)))
+
+(defn print-practice-sectors
+  "Pretty-print practice best sector times. Options are the same as print-championship-sectors."
+  ([^bytes data]
+   (print-practice-sectors data {:order track-order}))
+  ([^bytes data {:keys [track order] :or {order track-order}}]
+   (let [by (extract-practice-best-sector-times data)
+         sel (if-let [t (normalize-track track)]
+               (filter some? [t])
+               (filter #(contains? by %) order))]
+     (println)
+     (println "PRACTICE SECTORS")
+     (println "=================")
+     (doseq [trk sel]
+       (print-track-sectors trk (get by trk)))
+     by)))
