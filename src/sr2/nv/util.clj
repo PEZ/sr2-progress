@@ -80,14 +80,14 @@
        (safe-char (aget data (+ off 0)))
        (safe-char (aget data (+ off 5)))))
 
+
 (defn rec-cs
   "Centiseconds decoded from [20,21,16] as little-endian 24-bit ticks (60 ticks = 1 cs)."
   [^bytes data off]
-  (let [lsb (bit-and (aget data (+ off 20)) 0xFF)
-        mid (bit-and (aget data (+ off 21)) 0xFF)
-        msb (bit-and (aget data (+ off 16)) 0xFF)
-        ticks (le24 lsb mid msb)]
-    (quot ticks 60)))
+  (let [lsb (hex-to-dec (aget data (+ off 20)))
+        mid (hex-to-dec (aget data (+ off 21)))
+        msb (hex-to-dec (aget data (+ off 16)))]
+    (decode-cs lsb mid msb)))
 
 (defn rec-time
   "MM:SS.cc string for the record at offset `off`."
