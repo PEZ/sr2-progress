@@ -89,11 +89,6 @@
   [^bytes data start end opts]
   (row-candidates data start end opts))
 
-(defn- choose-overlays
-  "Choose a global set of non-overlapping overlays from a candidate list."
-  [cands]
-  (choose-row-overlays cands))
-
 (defn- render-row-ascii-with-overlays
   "Render ASCII gutter for one row [row-start,row-end), overlaying selected time candidates."
   [^bytes data row-start row-end overlays]
@@ -117,7 +112,7 @@
    (let [n (alength data)
          start (max 0 (min (long start) n))
     end (max start (min (long end) n))
-    overlays (choose-overlays (scan-range-candidates data start end opts))]
+    overlays (choose-row-overlays (scan-range-candidates data start end opts))]
      (loop [i start]
        (when (< i end)
          (let [line-end (min end (+ i 32))

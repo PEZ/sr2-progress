@@ -59,7 +59,7 @@
 ;; Exploratory tools (xpl/*)
 ;; ------------------------------------------
 (comment
-  (def data (u/read-nvram-bytes "data/srally2-known.nv"))
+  (def data (java.util.Arrays/copyOf (u/read-nvram-bytes "data/srally2-known.nv") 20000))
 
   ;; Hex dumps
   (xpl/hex-dump data 0x0267 0x04A0)
@@ -68,7 +68,7 @@
 
   ;; Hex dumps with time overlays
   (xpl/hex-dump-nonblank-with-times data)
-  (xpl/hex-dump-nonblank-with-times data {:blank-byte 0x00 :min-blank-len 32} {:min-cs 300 :max-cs 60000})
+  (xpl/hex-dump-nonblank-with-times data {:blank-byte 0x00 :min-blank-len 32} {:min-cs 600 :max-cs 60000})
 
   (xpl/hex-dump-with-times data 0x0267 0x02C7)
   (xpl/hex-dump-with-times data 0x1860 0x1A40)
