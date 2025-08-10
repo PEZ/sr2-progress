@@ -35,26 +35,13 @@
   [lsb-20 mid-21 msb-16]
   (bit-or lsb-20 (bit-shift-left mid-21 8) (bit-shift-left msb-16 16)))
 
-;; 60 ticks = 1 centisecond
-(defn decode-time
-  "Decode MM:SS.cc from [lsb mid msb], where 60 ticks = 1 centisecond."
-  [lsb mid msb]
-  (let [ticks (le24 lsb mid msb)
-        cs    (quot ticks 60)
-        m     (quot cs 6000)
-        rem   (mod cs 6000)
-        s     (quot rem 100)
-        cc    (mod rem 100)]
-    (format "%02d:%02d.%02d" m s cc)))
 
-(defn parse-mmsscc->cs
-  "Parse MM:SS.cc string into centiseconds."
-  [s]
-  (let [[_ mm ss cc] (re-matches #"(\d\d):(\d\d)\.(\d\d)" s)
-        mm (Long/parseLong mm)
-        ss (Long/parseLong ss)
-        cc (Long/parseLong cc)]
-    (+ (* mm 6000) (* ss 100) cc)))
+;; 60 ticks = 1 centisecond
+(defn decode-cs
+  "Decode centiseconds from [lsb mid msb], where 60 ticks = 1 centisecond."
+  [lsb mid msb]
+  (let [ticks (le24 lsb mid msb)]
+    (quot ticks 60)))
 
 (defn cs->mmsscc
   "Format centiseconds as MM:SS.cc"
@@ -64,6 +51,20 @@
         ss (quot rem 100)
         cc (mod rem 100)]
     (format "%02d:%02d.%02d" mm ss cc)))
+
+(defn decode-time
+  "Decode MM:SS.cc from [lsb mid msb], where 60 ticks = 1 centisecond."
+  [lsb mid msb]
+  (cs->mmsscc (decode-cs lsb mid msb)))
+
+(defn parse-mmsscc->cs
+  "Parse MM:SS.cc string into centiseconds."
+  [s]
+  (let [[_ mm ss cc] (re-matches #"(\d\d):(\d\d)\.(\d\d)" s)
+        mm (Long/parseLong mm)
+        ss (Long/parseLong ss)
+        cc (Long/parseLong cc)]
+    (+ (* mm 6000) (* ss 100) cc)))
 
 ;; ------------------------------------------
 ;; 32-byte record helpers (championship/practice style)
