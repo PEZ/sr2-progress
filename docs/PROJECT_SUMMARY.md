@@ -30,9 +30,9 @@ Planned/known data sets (some implemented, some pending):
 - [x] Top 16 best Championship runs (overall)
 - [ ] Top 8 Championship runs per car (6+ cars; potential hidden car)
 - [x] Top 3 best laps per track ("Championship per-track top 3")
-- [ ] Sector times for the best Championship run per track
+- [x] Sector times for the best Championship run per track
 - [x] Top 8 Practice run times per track
-- [ ] Sector times for the best Practice run per track
+- [x] Sector times for the best Practice run per track
 
 
 ## What we know about the NVRAM layout (from this repo’s exploration)
@@ -52,6 +52,56 @@ Planned/known data sets (some implemented, some pending):
 - Time unit: ticks, with `60 ticks = 1 centisecond`. Conversion: `centiseconds = (le24 bytes) / 60`. Format helper: `MM:SS.cc`.
 
 Note on Riviera sectors (Championship): Riviera runs over two laps. The sector table for the best run includes a duplicate cumulative time at the lap boundary (end of lap one / start of lap two). This yields 16 entries for Riviera, with two identical consecutive values at the middle.
+
+
+## Sector timing tables (championship and practice)
+
+We extract best-run sector timings for both Championship and Practice modes. These are not 0x20 records; they are compact 8-byte entries laid out consecutively and terminated by a run of zero bytes.
+
+- Bases (start offsets) inside the main chunk:
+  - Championship best sectors:
+    - Mountain `0x1F2F`, Desert `0x21AF`, Riviera `0x242F`, Snowy `0x26AF`
+  - Practice best sectors:
+    - Mountain `0x2E37`, Desert `0x30AF`, Riviera `0x3337`, Snowy `0x35B7`
+- Stride: 8 bytes per entry
+- Entry layout: `[msb, 0, 0, 0, lsb, mid, ?, 0]`
+  - The timing value is a 24-bit little‑endian counter composed from bytes `(lsb, mid, msb)`
+  - Time unit: `60 ticks = 1 centisecond`; formatting uses `MM:SS.cc`
+- Terminator: a contiguous run of at least 32 zero bytes marks the end of the table
+- Invariants/nuances:
+  - Entries are cumulative times (monotonic non‑decreasing)
+  - Championship Riviera covers 2 laps; the table contains a duplicate cumulative value at the lap boundary (middle), resulting in 16 cumulative entries
+  - Practice tables can include exact duplicates at lap boundaries as well (depending on track/laps)
+  - When deriving per‑sector split durations from cumulative values, we suppress zero‑length splits (i.e., exact duplicates are omitted)
+
+Clojure API:
+
+- Cumulative sector times per track (strings `"MM:SS.cc"`):
+  - `ext/extract-championship-best-sector-times data -> {track [times...]}`
+  - `ext/extract-practice-best-sector-times data -> {track [times...]}`
+- Split durations derived from cumulative (zero‑length splits suppressed):
+  - `ext/extract-championship-sector-splits data -> {track [times...]}`
+  - `ext/extract-practice-sector-splits data -> {track [times...]}`
+- Pretty printers (optional):
+  - `ext/print-championship-sectors data {:mode :cumulative|:splits :track :desert}`
+  - `ext/print-practice-sectors data {:mode :cumulative|:splits :track "Snowy"}`
+
+Quick REPL examples:
+
+```clojure
+(require '[sr2.nv.util :as u]
+         '[sr2.nv.extract :as ext])
+(def data (u/read-nvram-bytes "data/srally2-known.nv"))
+
+; Championship sectors (cumulative)
+(ext/extract-championship-best-sector-times data)
+
+; Championship sector splits (durations)
+(ext/extract-championship-sector-splits data)
+
+; Practice sectors for a single track, as splits
+(ext/print-practice-sectors data {:mode :splits :track :riviera})
+```
 
 
 ## Implemented building blocks and extractors (Clojure API)
