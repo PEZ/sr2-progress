@@ -112,3 +112,16 @@
       ;; Should contain at least one known plausible championship time pattern on first couple of rows
       (is (some #(re-find #"\|.*\d{6}.*\|" %) (take 3 lines))))))
 
+(deftest championship-sector-times-sanity
+  (testing "extracts championship best sector times per track and matches known data"
+    (let [got (ext/extract-championship-best-sector-times data)
+          expected kd/championship-sector-times]
+      (is (= (set (keys expected)) (set (keys got))))
+      ;; Compare exact sequences for this known sample NVRAM
+      (doseq [trk (keys expected)]
+        (is (= (get expected trk) (get got trk)) (str trk ": sector times differ"))))))
+
+
+
+
+

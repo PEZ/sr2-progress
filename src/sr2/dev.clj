@@ -8,13 +8,15 @@
 
 (def ^:private source-namespaces
   '[sr2.nvram-extractor
-    sr2.nv.explore])
+    sr2.nv.explore
+  sr2.nvram-known-data
+    sr2.nv.extract])
 
 (defn load-tests
   "Require all known test namespaces. Extend the vector when new tests are added."
   []
   (doseq [ns-sym test-namespaces]
-    (require ns-sym :reload)))
+    (require ns-sym :reload-all)))
 
 (defn reload-sources
   "Force reload of project source namespaces touched by tests."

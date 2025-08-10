@@ -49,6 +49,16 @@
   (ext/print-practice-top8 data)
   (ext/print-practice-top8 data {:order ext/track-order})
 
+  ;; Sector times (best runs)
+  ;; Championship sectors per track (Riviera includes a duplicate at the lap boundary)
+  (ext/extract-championship-best-sector-times data)
+  ;; Quick glance: counts and last per track
+  (-> (ext/extract-championship-best-sector-times data)
+      (update-vals (fn [v] {:count (count v) :last (last v)})))
+
+  ;; Practice sectors per track
+  (ext/extract-practice-best-sector-times data)
+
   ;; Single-record helpers
   (u/rec-name data 0x0267)
   (u/rec-cs data 0x0267)

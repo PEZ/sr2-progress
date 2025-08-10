@@ -51,6 +51,8 @@ Planned/known data sets (some implemented, some pending):
   - Per-track top-3 record time bytes: `[30, 31, 26]` and initials bytes `[11, 10, 15]`
 - Time unit: ticks, with `60 ticks = 1 centisecond`. Conversion: `centiseconds = (le24 bytes) / 60`. Format helper: `MM:SS.cc`.
 
+Note on Riviera sectors (Championship): Riviera runs over two laps. The sector table for the best run includes a duplicate cumulative time at the lap boundary (end of lap one / start of lap two). This yields 16 entries for Riviera, with two identical consecutive values at the middle.
+
 
 ## Implemented building blocks and extractors (Clojure API)
 

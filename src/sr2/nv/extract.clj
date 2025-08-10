@@ -1,8 +1,9 @@
 
 (ns sr2.nv.extract
-  "Settled extractors: championship, per-track top-3, practice top-8, and player summaries."
+  "Settled extractors: championship, per-track top-3, practice top-8, sector times, and player summaries."
   (:require [clojure.string :as string]
-            [sr2.nv.util :as u]))
+            [sr2.nv.util :as u]
+            [sr2.nv.explore :as xpl]))
 
 ;; ==========================================
 ;; CHAMPIONSHIP LEADERBOARD (top-16)
@@ -253,3 +254,61 @@
        (doseq [{:keys [off name time]} (get by trk)]
          (println " " (format "0x%04x" off) name time)))
      by)))
+
+;; ------------------------------------------
+;; SECTOR TIMES (8-byte stride, 32 zero-bytes terminator)
+;; ------------------------------------------
+
+(def championship-sector-bases
+  "Start offsets for championship best sector times per track. Values verified in sample NVRAM."
+  (sorted-map
+   :desert   0x21AF
+   :mountain 0x1F2F
+   :snowy    0x26AF
+   :riviera  0x242F))
+
+(def practice-sector-bases
+  "Start offsets for practice best sector times per track."
+  (sorted-map
+   :desert   0x30AF
+   :mountain 0x2E37
+   :snowy    0x35B7
+   :riviera  0x3337))
+
+(def ^:private sector-stride 8)
+
+(defn- region-end-at-zero-terminator
+  "Return region end index: first run of >=32 zero bytes at or after `start`, or array length."
+  [^bytes data start]
+  (or (xpl/find-next-blank-run data start {:blank-byte 0 :min-len 32})
+      (alength data)))
+
+(defn- decode-sector-times-at
+  "Decode sector times from `start` stepping 8 bytes until a 32x00 terminator is reached.
+   Uses record layout [msb,0,0,0,lsb,mid,?,0] → u/decode-time lsb mid msb. Returns a vector of MM:SS.cc strings."
+  [^bytes data start]
+  (let [end (region-end-at-zero-terminator data start)
+        last-allowed (long (- end 6))]
+    (loop [i (long start), acc (transient [])]
+      (if (> i last-allowed)
+        (persistent! acc)
+        (let [msb (u/hex->dec (aget data i))
+              lsb (u/hex->dec (aget data (+ i 4)))
+              mid (u/hex->dec (aget data (+ i 5)))
+              t   (u/decode-time lsb mid msb)]
+          (recur (+ i sector-stride) (conj! acc t)))))))
+
+(defn extract-championship-best-sector-times
+  "Return {track [MM:SS.cc ...]} of championship best sector times per track.
+   Values are decoded directly from the sector tables; no padding is applied."
+  [^bytes data]
+  (into (sorted-map)
+        (for [[trk base] championship-sector-bases]
+          [trk (decode-sector-times-at data base)])))
+
+(defn extract-practice-best-sector-times
+  "Return {track [MM:SS.cc ...]} of practice best sector times per track."
+  [^bytes data]
+  (into (sorted-map)
+        (for [[trk base] practice-sector-bases]
+          [trk (decode-sector-times-at data base)])))
