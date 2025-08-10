@@ -4,14 +4,14 @@ Audience: AI coding agents working in VS Code on this Clojure project.
 Goal: Be maximally effective and precise when extending extractors and docs.
 Key doc: Always read `docs/PROJECT_SUMMARY.md` first for data layout, offsets, and current capabilities.
 
-## Modules and façade
+## Modules
 
-- Public entrypoint: `sr2.nvram-extractor` (façade). This namespace exposes the stable API used by tests and docs. Keep it stable unless asked to change it.
+- Public entrypoint: `sr2.nvram-extractor`. This namespace is a repl friendly collection of RCFs, showcasing how to use the code in the other namespaces. Keep it updated as code in the project changes. Keep updates to it surgical so that we do not mess up existing examples.
 - Internal modules:
   - `sr2.nv.util` (alias `u`): pure helpers (bytes, time codecs, record fields).
   - `sr2.nv.explore` (alias `xpl`): exploratory tools (hex dumps, region scans, landmarks).
   - `sr2.nv.extract` (alias `ext`): settled extractors (championship, per‑track top‑3, practice top‑8, player summaries).
-- Policy: Inside modules, call helpers via alias-qualified symbols (e.g. `u/decode-time`) rather than re‑exporting/wrapping. The façade binds to module vars to present the public API.
+- Policy: Inside modules, call helpers via alias-qualified symbols (e.g. `u/decode-time`) rather than re‑exporting/wrapping.
 
 
 ## Operating principles
