@@ -79,6 +79,7 @@
 ;; ------------------------------------------
 (comment
   (def data (java.util.Arrays/copyOf (u/read-nvram-bytes "data/srally2-known.nv") 20000))
+  (def data (java.util.Arrays/copyOf (u/read-nvram-bytes "../Supermodel/NVRAM/srally2.nv") 20000))
 
   ;; Hex dumps
   (xpl/hex-dump data 0x0267 0x04A0)

@@ -24,12 +24,21 @@
           (println (format "%04X: %-47s  |%s|" i hexs ascii))
           (recur line-end))))))
 
+
 ;; Hex dump variant that overlays plausible time patterns (6 bytes = two equal 24-bit values)
+
+(def time-false-positive?
+  "Known time-like css that are not actually times"
+  #{(u/parse-mmsscc->cs "08:22.45")
+    (u/parse-mmsscc->cs "03:16.60")
+    (u/parse-mmsscc->cs "03:16.61")})
+
 (defn- plausible-time-cs?
   "Heuristic: centiseconds in [min-cs,max-cs] inclusive. Defaults 3s..10:00.00."
   ([cs] (plausible-time-cs? cs 300 60000))
   ([cs min-cs max-cs]
-   (and (<= (long min-cs) cs) (<= cs (long max-cs)))))
+   (and (not (time-false-positive? cs))
+        (<= (long min-cs) cs) (<= cs (long max-cs)))))
 
 
 ;; ------------------------------------------
@@ -86,11 +95,6 @@
             (recur (conj chosen c) (into occ rng) more)
             (recur chosen occ more)))))))
 
-(defn- scan-range-candidates
-  "Scan [start,end) and return all time-window candidates (same shape as row-candidates)."
-  [^bytes data start end opts]
-  (row-candidates data start end opts))
-
 (defn- render-row-ascii-with-overlays
   "Render ASCII gutter for one row [row-start,row-end), overlaying selected time candidates."
   [^bytes data row-start row-end overlays]
@@ -114,7 +118,7 @@
    (let [n (alength data)
          start (max 0 (min (long start) n))
     end (max start (min (long end) n))
-    overlays (choose-row-overlays (scan-range-candidates data start end opts))]
+    overlays (choose-row-overlays (row-candidates data start end opts))]
      (loop [i start]
        (when (< i end)
          (let [line-end (min end (+ i 32))
