@@ -6,7 +6,7 @@
 
 ;; Simple hex dump utility
 (defn hex-dump
-  "Print a hex dump of data bytes in [start,end). 16 bytes per line with ASCII gutter."
+  "Print a hex dump of data bytes in [start,end). 32 bytes per line with ASCII gutter."
   [^bytes data start end]
   (let [n (alength data)
         start (max 0 (min (long start) n))
@@ -21,7 +21,7 @@
                         (map #(string/join " " %))
                         (string/join "  "))
               ascii (apply str (map (partial u/safe-char \.) bs))]
-          (println (format "%04X: %-47s  |%s|" i hexs ascii))
+          (println (format "%04X: %-98s  |%s|" i hexs ascii))
           (recur line-end))))))
 
 
@@ -129,7 +129,7 @@
                          (map #(string/join " " %))
                          (string/join "  "))
       ascii (render-row-ascii-with-overlays data i line-end overlays)]
-           (println (format "%04X: %-47s  |%s|" i hexs ascii))
+           (println (format "%04X: %-98s  |%s|" i hexs ascii))
            (recur line-end)))))))
 
 ;; ==========================================
