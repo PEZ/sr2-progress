@@ -13,12 +13,12 @@
     (.readAllBytes stream)))
 
 (defn safe-char
-  "Convert byte to ASCII char, returning . for non-printable."
-  [byte-val]
+  "Convert byte to ASCII char"
+  [non-printable-char byte-val]
   (let [b (bit-and byte-val 0xFF)]
     (if (and (>= b 32) (<= b 126))
       (char b)
-      \.)))
+      non-printable-char)))
 
 (defn hex->dec [byte]
   (if (nil? byte) 0 (bit-and byte 0xff)))
@@ -76,9 +76,9 @@
   "Player initials/name as stored in a 32-byte record at offset `off`.
    Uses the same positions as championship entries (1, 0, 5)."
   [^bytes data off]
-  (str (safe-char (aget data (+ off 1)))
-       (safe-char (aget data (+ off 0)))
-       (safe-char (aget data (+ off 5)))))
+  (str ((partial safe-char \.) (aget data (+ off 1)))
+       ((partial safe-char \.) (aget data (+ off 0)))
+       ((partial safe-char \.) (aget data (+ off 5)))))
 
 
 (defn rec-cs

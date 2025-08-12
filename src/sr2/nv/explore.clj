@@ -20,7 +20,7 @@
                         (partition-all 8)
                         (map #(string/join " " %))
                         (string/join "  "))
-              ascii (apply str (map u/safe-char bs))]
+              ascii (apply str (map (partial u/safe-char \.) bs))]
           (println (format "%04X: %-47s  |%s|" i hexs ascii))
           (recur line-end))))))
 
@@ -96,7 +96,7 @@
   [^bytes data row-start row-end overlays]
   (let [idxs (range row-start row-end)
         bs   (map #(bit-and (aget data %) 0xFF) idxs)
-        base (char-array (map u/safe-char bs))
+        base (char-array (map (partial u/safe-char \space) bs))
         cands overlays]
     (doseq [{:keys [start digits]} cands]
       (doseq [[k ch] (map-indexed vector digits)]

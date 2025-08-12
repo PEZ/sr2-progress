@@ -16,10 +16,9 @@
 (comment
   ;; Load sample data
   (def data (u/read-nvram-bytes "data/srally2-known.nv"))
-  ;; (def data (u/read-nvram-bytes "../Supermodel/NVRAM/srally2.nv"))
+  (def data (u/read-nvram-bytes "../Supermodel/NVRAM/srally2.nv"))
 
   ;; Championship Top-16
-  (take 3 (ext/extract-championship-leaderboard data))
   (ext/championship-leaderboard data)
 
   ;; Per-track Top-3
@@ -66,6 +65,7 @@
   (ext/print-practice-sectors data)
   (ext/print-practice-sectors data {:track "Snowy"})
   (ext/extract-practice-sector-splits data)
+  (ext/print-practice-sectors data {:mode :splits})
   (ext/print-practice-sectors data {:mode :splits :track :riviera})
 
   ;; Single-record helpers
